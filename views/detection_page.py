@@ -13,6 +13,7 @@ from PyQt5.QtWidgets import (
 from PyQt5.QtGui import QPixmap, QImage
 from PyQt5.QtCore import Qt
 import cv2
+from utils.global_state import global_state
 
 
 class DetectionPage(QWidget):
@@ -100,7 +101,7 @@ class DetectionPage(QWidget):
         display_splitter.addWidget(result_group)
         display_splitter.setSizes([400, 400])
         
-        main_layout.addWidget(display_splitter)
+        main_layout.addWidget(display_splitter, 1)  # 添加伸缩因子，使显示区域随窗口垂直伸缩
         
         # 创建控制区域
         control_section = QGroupBox("控制")
@@ -192,6 +193,8 @@ class DetectionPage(QWidget):
             info: 检测信息文本
         """
         self.info_text.append(info)
+        # 自动滚动到最后一行
+        self.info_text.verticalScrollBar().setValue(self.info_text.verticalScrollBar().maximum())
     
     def clear_all(self):
         """清除所有显示内容"""
@@ -380,6 +383,9 @@ class DetectionPage(QWidget):
             # 启动线程
             self.detection_thread.start()
             
+            # 增加检测次数
+            global_state.increment_detection_count()
+            
             # 更新信息
             self.update_info(f"开始{self.detection_mode}检测...")
             
@@ -398,17 +404,60 @@ class DetectionPage(QWidget):
                 self.display_image(processed_image, is_original=False)
             
             # 显示检测统计信息
+            from datetime import datetime
+            current_time = datetime.now().strftime('%H:%M:%S')
             stats = detection_result.get("stats", {})
-            total = stats.get("total", 0)
-            max_width = stats.get("max_width", 0)
+            total_cracks = stats.get("total_cracks", 0)
             
-            self.update_info(f"图像检测完成")
-            self.update_info(f"裂缝数量: {total}")
-            self.update_info(f"最大裂缝宽度: {max_width:.2f} 像素")
+            # 优化日志格式：[时间] 检测完成 | 发现目标: 0 | 状态: 正常
+            self.update_info(f"[{current_time}] 检测完成 | 发现目标: {total_cracks} | 状态: 正常")
             
             # 更新全局状态
             from utils.global_state import global_state
-            global_state.update_crack_data(total, max_width)
+            max_width = stats.get("max_width", 0)
+            global_state.update_crack_data(total_cracks, max_width)
+            
+            # 保存检测结果图片
+            import os
+            from datetime import datetime
+            
+            # 创建outputs目录（如果不存在）
+            output_dir = "outputs"
+            os.makedirs(output_dir, exist_ok=True)
+            
+            # 生成时间戳文件名
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            image_path = os.path.join(output_dir, f"{timestamp}.jpg")
+            
+            # 保存处理后的图像
+            cv2.imwrite(image_path, processed_image)
+            
+            # 将结果存入数据库
+            # 将结果存入数据库
+            try:
+                from utils.db_manager import DBManager
+                db = DBManager()
+                db.add_crack_record(
+                    project_id=global_state.get_current_project_id() or 1,  # 默认使用项目ID 1
+                    score=detection_result.get("score", 0),
+                    image_path=image_path,
+                    width=max_width,
+                    count=total_cracks
+                )
+                
+                # --- 修改开始 ---
+                # 获取顶层窗口 (MainWindow) 来访问状态栏
+                main_window = self.window()
+                if hasattr(main_window, 'statusBar') and main_window.statusBar:
+                    main_window.statusBar.showMessage(f"检测结果已归档 | 裂缝数: {total_cracks}", 3000)
+                # --- 修改结束 ---
+                
+            except Exception as e:
+                # 注意：如果这里的 e 是关于 statusBar 的错误，说明数据库其实已经保存成功了
+                self.show_error("错误", f"保存检测结果到数据库失败: {str(e)}")
+            
+            # 重置检测状态
+            self.is_detecting = False
             
             # 重置检测状态
             self.is_detecting = False
@@ -424,10 +473,13 @@ class DetectionPage(QWidget):
                 self.display_image(frame, is_original=False)
             
             # 显示检测统计信息
+            from datetime import datetime
+            current_time = datetime.now().strftime('%H:%M:%S')
             stats = result.get("stats", {})
-            total = stats.get("total", 0)
+            total_cracks = stats.get("total_cracks", 0)
             
-            self.update_info(f"当前帧裂缝数量: {total}")
+            # 优化日志格式：[时间] 检测完成 | 发现目标: 0 | 状态: 正常
+            self.update_info(f"[{current_time}] 检测完成 | 发现目标: {total_cracks} | 状态: 正常")
             
         except Exception as e:
             print(f"处理视频帧失败: {e}")

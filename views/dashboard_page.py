@@ -13,6 +13,7 @@ from PyQt5.QtWidgets import (
 from PyQt5.QtGui import QPixmap, QFont, QIcon
 from PyQt5.QtCore import Qt
 import os
+from utils.global_state import global_state
 
 
 class DashboardPage(QWidget):
@@ -45,7 +46,9 @@ class DashboardPage(QWidget):
         metrics_layout.addWidget(status_card)
         
         # 创建今日检测卡片
-        detection_card = self._create_metric_card("今日检测", "12 次", "black")
+        detection_count = global_state.get_detection_count()
+        detection_card = self._create_metric_card("今日检测", f"{detection_count} 次", "black")
+        self.detection_card = detection_card  # 保存引用以便后续更新
         metrics_layout.addWidget(detection_card)
         
         # 创建发现病害卡片
@@ -68,24 +71,30 @@ class DashboardPage(QWidget):
         bridge_image_label.setAlignment(Qt.AlignCenter)
         
         # 检查是否有示例图片
-        image_path = "bridge_example.jpg"
+        image_path = "assets/bridge_cover.jpg"
         if os.path.exists(image_path):
             # 初始显示图片，稍后在resizeEvent中会调整大小
             pixmap = QPixmap(image_path)
-            scaled_pixmap = pixmap.scaled(400, 300, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+            scaled_pixmap = pixmap.scaled(400, 300, Qt.KeepAspectRatioByExpanding, Qt.SmoothTransformation)
             bridge_image_label.setPixmap(scaled_pixmap)
             # 保存原始图片用于后续缩放
             self.original_pixmap = pixmap
         else:
             # 显示占位符
             bridge_image_label.setText("桥梁图片占位符")
-            bridge_image_label.setStyleSheet("QLabel { font-size: 16px; color: #666666; border: 2px dashed #cccccc; padding: 20px; }")
+            bridge_image_label.setStyleSheet("QLabel { font-size: 16px; color: #666666; border: 2px dashed #cccccc; padding: 20px; border-radius: 10px; }")
             self.original_pixmap = None
+        
+        # 设置图片标签样式
+        bridge_image_label.setStyleSheet("QLabel { border-radius: 10px; }")
+        image_frame.setStyleSheet("QFrame { border-radius: 10px; }")
         
         # 存储桥梁图片标签引用
         self.bridge_image_label = bridge_image_label
         
-        image_layout.addWidget(bridge_image_label)
+        # 设置图片标签可以垂直伸缩
+        bridge_image_label.setMinimumHeight(300)  # 设置最小高度
+        image_layout.addWidget(bridge_image_label, 1)  # 添加伸缩因子
         
         # 创建右侧项目信息列表
         info_frame = QFrame()
@@ -128,7 +137,7 @@ class DashboardPage(QWidget):
         content_layout.addWidget(image_frame, 1)
         content_layout.addWidget(info_frame, 1)
         
-        main_layout.addWidget(content_section)
+        main_layout.addWidget(content_section, 1)  # 添加伸缩因子
         main_layout.addStretch()
     
     def resizeEvent(self, event):
@@ -139,15 +148,33 @@ class DashboardPage(QWidget):
             # 获取标签的当前大小
             label_size = self.bridge_image_label.size()
             
-            # 缩放图片以适应标签大小，保持宽高比
+            # 缩放图片以适应标签大小，保持宽高比并铺满容器
             scaled_pixmap = self.original_pixmap.scaled(
                 label_size,
-                Qt.KeepAspectRatio,
+                Qt.KeepAspectRatioByExpanding,
                 Qt.SmoothTransformation
             )
             
             # 更新标签上的图片
             self.bridge_image_label.setPixmap(scaled_pixmap)
+    
+    def update_detection_count(self):
+        """更新今日检测次数的显示"""
+        from PyQt5.QtWidgets import QLabel
+        
+        if hasattr(self, 'detection_card'):
+            # 获取卡片中的布局
+            layout = self.detection_card.layout()
+            if layout:
+                # 获取内容布局
+                content_layout = layout.itemAt(1).layout()
+                if content_layout:
+                    # 获取值标签
+                    value_label = content_layout.itemAt(0).widget()
+                    if isinstance(value_label, QLabel):
+                        # 更新值标签的文本
+                        detection_count = global_state.get_detection_count()
+                        value_label.setText(f"{detection_count} 次")
     
     def _create_metric_card(self, title, value, value_color, has_icon=False):
         """创建指标卡片

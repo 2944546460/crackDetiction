@@ -38,9 +38,9 @@ class YoloModel(ImageProcessingModel):
         try:
             if self._model_path is None:
                 # 如果没有提供模型路径，优先使用当前目录下的best.pt模型
-                if os.path.exists("best.pt"):
-                    self._model = YOLO("best.pt")
-                    print("使用默认的训练模型: best.pt")
+                if os.path.exists("best_seg.pt"):
+                    self._model = YOLO("best_seg.pt")
+                    print("使用默认的训练模型: best_seg.pt")
                 else:
                     # 如果best.pt不存在，使用yolov11n.pt
                     self._model = YOLO("yolov11n.pt")
@@ -84,37 +84,33 @@ class YoloModel(ImageProcessingModel):
             if not self.is_initialized:
                 raise RuntimeError("YOLO检测模型未初始化")
         
-        # 读取图像
+       # 读取图像
         original_image = self.read_image(image)
-        processed_image = original_image.copy()
+        # processed_image = original_image.copy()  <-- 这行可以删掉，plot() 会返回新图
         
         # 进行检测
-        results = self._model(processed_image)
+        results = self._model(original_image)
         
-        # 处理检测结果
+        # --- 核心修改开始 ---
+        
+        # 方案：直接使用 YOLO 自带的绘图功能
+        # 这会自动绘制 框(Boxes) + 掩膜(Masks) + 标签(Labels)
+        # img=original_image 参数确保在原图上绘制
+        # conf=True 显示置信度
+        # boxes=True 显示检测框
+        processed_image = results[0].plot(conf=True, boxes=True, img=original_image)
+        # --- 核心修改结束 ---
+
+        # 下面统计数据的逻辑可以保留，用来生成报告
         detected_cracks = []
         for result in results:
-            # 获取检测框、置信度和类别
             boxes = result.boxes
-            for box in boxes:
-                # 获取边界框坐标
-                x1, y1, x2, y2 = box.xyxy[0].tolist()
-                
-                # 获取置信度和类别
-                confidence = box.conf[0].item()
-                class_id = int(box.cls[0].item())
-                
-                # 如果是裂缝类别（在实际应用中，应该根据训练的模型调整类别ID）
-                # 这里假设类别ID 0 是裂缝
-                if class_id == 0:
-                    # 绘制检测框
-                    cv2.rectangle(processed_image, (int(x1), int(y1)), (int(x2), int(y2)), (0, 0, 255), 2)
-                    
-                    # 添加置信度文本
-                    label = f"裂缝: {confidence:.2f}"
-                    # 使用自定义方法绘制中文文本
-                    processed_image = self._draw_chinese_text(processed_image, label, (int(x1), int(y1) - 20), 
-                                                              font_size=12, color=(0, 0, 255))
+            if len(boxes) > 0:
+                for box in boxes:
+                    # 获取基本信息用于统计（不用于画图了）
+                    x1, y1, x2, y2 = box.xyxy[0].tolist()
+                    confidence = box.conf[0].item()
+                    class_id = int(box.cls[0].item())
                     
                     # 存储裂缝信息
                     crack_info = {
@@ -124,7 +120,6 @@ class YoloModel(ImageProcessingModel):
                         "center": [(x1 + x2) / 2, (y1 + y2) / 2]
                     }
                     detected_cracks.append(crack_info)
-        
         # 计算裂缝统计信息
         crack_stats = {
             "total_cracks": len(detected_cracks),

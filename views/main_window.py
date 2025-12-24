@@ -20,7 +20,8 @@ if parent_dir not in sys.path:
 
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QFrame, QPushButton, QVBoxLayout,
-    QHBoxLayout, QStackedWidget, QWidget, QSplitter, QLabel, QTextEdit
+    QHBoxLayout, QStackedWidget, QWidget, QSplitter, QLabel, QTextEdit,
+    QSizePolicy
 )
 from PyQt5.QtGui import QFont, QIcon
 from PyQt5.QtCore import Qt
@@ -31,11 +32,13 @@ try:
     from views.dashboard_page import DashboardPage
     from views.report_page import ReportPage
     from views.traffic_page import TrafficPage
+    from views.history_page import HistoryPage
 except ImportError:
     from detection_page import DetectionPage
     from dashboard_page import DashboardPage
     from report_page import ReportPage
     from traffic_page import TrafficPage
+    from history_page import HistoryPage
 
 # 导入YOLO视频检测线程
 try:
@@ -62,6 +65,10 @@ class MainWindow(QMainWindow):
         
         # 连接信号与槽
         self.connect_signals()
+        
+        # 初始化状态栏
+        self.statusBar = self.statusBar()
+        self.statusBar.showMessage("就绪")
     
     def init_ui(self):
         """初始化UI组件"""
@@ -71,6 +78,8 @@ class MainWindow(QMainWindow):
         
         # 创建主布局（水平布局）
         main_layout = QHBoxLayout(central_widget)
+        main_layout.setContentsMargins(0, 0, 0, 0)  # 移除边距，最大化可用空间
+        main_layout.setSpacing(0)  # 移除间距
         
         # 创建左侧导航栏
         self.nav_frame = QFrame()
@@ -93,14 +102,30 @@ class MainWindow(QMainWindow):
         self.detection_btn = QPushButton("📷 裂缝检测")
         self.traffic_btn = QPushButton("🚛 交通荷载")
         self.report_btn = QPushButton("📋 评估报告")
+        self.history_btn = QPushButton("📊 历史记录")
+        # 将按钮放入一个列表，方便批量处理
+        self.nav_btns = [self.home_btn, self.detection_btn, self.traffic_btn, self.report_btn, self.history_btn]
         
+        for btn in self.nav_btns:
+            btn.setMinimumHeight(50)
+            btn.setCursor(Qt.PointingHandCursor)
+            
+            # --- 新增：设置为可选中模式 ---
+            btn.setCheckable(True)       # 允许按钮处于“按下”状态
+            btn.setAutoExclusive(True)   # 自动互斥（点亮一个，其他的自动熄灭）
+            
+            nav_layout.addWidget(btn)
+            
+        # 默认选中第一个
+        self.home_btn.setChecked(True)
         # 设置按钮对象名称
         self.home_btn.setObjectName("home_btn")
         self.detection_btn.setObjectName("detection_btn")
         self.traffic_btn.setObjectName("traffic_btn")
         self.report_btn.setObjectName("report_btn")
+        self.history_btn.setObjectName("history_btn")
         
-        for btn in [self.home_btn, self.detection_btn, self.traffic_btn, self.report_btn]:
+        for btn in [self.home_btn, self.detection_btn, self.traffic_btn, self.report_btn, self.history_btn]:
             btn.setMinimumHeight(50)
             btn.setCursor(Qt.PointingHandCursor)
             nav_layout.addWidget(btn)
@@ -111,7 +136,7 @@ class MainWindow(QMainWindow):
         # 创建右侧多页面容器
         self.stacked_widget = QStackedWidget()
         
-        # 创建4个页面
+        # 创建5个页面
         self.home_page = DashboardPage()
         
         # 使用DetectionPage作为裂缝检测页面
@@ -122,15 +147,23 @@ class MainWindow(QMainWindow):
         
         self.report_page = ReportPage()
         
+        # 创建历史记录页面
+        self.history_page = HistoryPage()
+        
         # 将页面添加到多页面容器
         self.stacked_widget.addWidget(self.home_page)
         self.stacked_widget.addWidget(self.detection_page)
         self.stacked_widget.addWidget(self.traffic_page)
         self.stacked_widget.addWidget(self.report_page)
+        self.stacked_widget.addWidget(self.history_page)
         
         # 将左侧导航栏和右侧多页面容器添加到主布局
         main_layout.addWidget(self.nav_frame)
         main_layout.addWidget(self.stacked_widget, 1)  # 设置伸缩因子，使右侧占据剩余空间
+        
+        # 设置中央部件的布局策略，使其能在垂直方向上伸缩
+        central_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self.stacked_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
     
     def connect_signals(self):
         """连接信号与槽"""
@@ -139,6 +172,7 @@ class MainWindow(QMainWindow):
         self.detection_btn.clicked.connect(lambda: self.stacked_widget.setCurrentIndex(1))
         self.traffic_btn.clicked.connect(lambda: self.stacked_widget.setCurrentIndex(2))
         self.report_btn.clicked.connect(lambda: self.stacked_widget.setCurrentIndex(3))
+        self.history_btn.clicked.connect(lambda: self.stacked_widget.setCurrentIndex(4))
     
     def initialize(self):
         """初始化主窗口"""
@@ -339,6 +373,13 @@ if __name__ == "__main__":
     
     # 创建应用程序实例
     app = QApplication(sys.argv)
+
+    # --- 新增：确保加载全局样式 ---
+    try:
+        from utils.styles import GLOBAL_STYLE
+        app.setStyleSheet(GLOBAL_STYLE) # 这一句至关重要！
+    except ImportError:
+        print("警告：未找到样式文件")
     
     # 设置应用程序样式
     app.setStyle("Fusion")  # 使用Fusion样式，提供更现代的界面

@@ -8,7 +8,7 @@
 
 from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QFrame, 
-    QGroupBox, QGridLayout, QSplitter
+    QGroupBox, QGridLayout, QSplitter, QSizePolicy
 )
 from PyQt5.QtGui import QPixmap, QFont, QIcon
 from PyQt5.QtCore import Qt
@@ -58,24 +58,34 @@ class DashboardPage(QWidget):
         main_layout.addLayout(metrics_layout)
         
         # 创建中部图表区
-        content_section = QGroupBox()
+        content_section = QFrame()
+        content_section.setStyleSheet("QFrame { background-color: #ffffff; border: 1px solid #e0e0e0; border-radius: 8px; }")
         content_layout = QHBoxLayout(content_section)
-        content_layout.setSpacing(20)
+        content_layout.setSpacing(40)  # 增加左右间距
+        content_layout.setContentsMargins(30, 30, 30, 30)
         
         # 创建左侧桥梁图片显示
         image_frame = QFrame()
+        image_frame.setStyleSheet("border: none;") # 移除内部边框
         image_layout = QVBoxLayout(image_frame)
+        image_layout.setContentsMargins(0, 0, 0, 0)
+        
+        # 添加左侧标题，保持与右侧对齐
+        image_title = QLabel("桥梁概览")
+        image_title.setStyleSheet("QLabel { font-size: 16px; font-weight: bold; margin-bottom: 15px; font-family: 'Microsoft YaHei'; border: none; }")
+        image_layout.addWidget(image_title)
         
         # 尝试加载本地桥梁图片，如果没有则显示占位符
         bridge_image_label = QLabel()
         bridge_image_label.setAlignment(Qt.AlignCenter)
+        bridge_image_label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         
         # 检查是否有示例图片
-        image_path = "assets/bridge_cover.jpg"
+        image_path = "icons/八一大桥.jpg"
         if os.path.exists(image_path):
             # 初始显示图片，稍后在resizeEvent中会调整大小
             pixmap = QPixmap(image_path)
-            scaled_pixmap = pixmap.scaled(400, 300, Qt.KeepAspectRatioByExpanding, Qt.SmoothTransformation)
+            scaled_pixmap = pixmap.scaled(400, 300, Qt.KeepAspectRatio, Qt.SmoothTransformation)
             bridge_image_label.setPixmap(scaled_pixmap)
             # 保存原始图片用于后续缩放
             self.original_pixmap = pixmap
@@ -86,23 +96,24 @@ class DashboardPage(QWidget):
             self.original_pixmap = None
         
         # 设置图片标签样式
-        bridge_image_label.setStyleSheet("QLabel { border-radius: 10px; }")
-        image_frame.setStyleSheet("QFrame { border-radius: 10px; }")
+        bridge_image_label.setStyleSheet("QLabel { border-radius: 5px; background-color: #f8f9fa; border: 1px solid #e9ecef; }")
         
         # 存储桥梁图片标签引用
         self.bridge_image_label = bridge_image_label
         
         # 设置图片标签可以垂直伸缩
-        bridge_image_label.setMinimumHeight(300)  # 设置最小高度
-        image_layout.addWidget(bridge_image_label, 1)  # 添加伸缩因子
+        bridge_image_label.setMinimumHeight(350)  # 稍微增加高度以平衡右侧列表
+        image_layout.addWidget(bridge_image_label, 1)
         
         # 创建右侧项目信息列表
         info_frame = QFrame()
+        info_frame.setStyleSheet("border: none;") # 移除内部边框
         info_layout = QVBoxLayout(info_frame)
+        info_layout.setContentsMargins(0, 0, 0, 0)
         
         # 创建项目信息标题
         info_title = QLabel("项目信息")
-        info_title.setStyleSheet("QLabel { font-size: 16px; font-weight: bold; margin-bottom: 15px; font-family: 'Microsoft YaHei'; }")
+        info_title.setStyleSheet("QLabel { font-size: 16px; font-weight: bold; margin-bottom: 15px; font-family: 'Microsoft YaHei'; border: none; }")
         info_layout.addWidget(info_title)
         
         # 创建项目信息网格布局
@@ -148,10 +159,10 @@ class DashboardPage(QWidget):
             # 获取标签的当前大小
             label_size = self.bridge_image_label.size()
             
-            # 缩放图片以适应标签大小，保持宽高比并铺满容器
+            # 缩放图片以适应标签大小，保持宽高比
             scaled_pixmap = self.original_pixmap.scaled(
                 label_size,
-                Qt.KeepAspectRatioByExpanding,
+                Qt.KeepAspectRatio,
                 Qt.SmoothTransformation
             )
             

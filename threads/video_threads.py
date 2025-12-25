@@ -12,6 +12,8 @@ from PyQt5.QtCore import QThread, pyqtSignal, Qt
 from PyQt5.QtGui import QImage
 from threads.base_thread import BaseThread
 from models.yolo_detection import YoloModel
+from utils.config_manager import ConfigManager
+from utils.logger import logger
 
 
 class YOLOThread(BaseThread):
@@ -21,14 +23,24 @@ class YOLOThread(BaseThread):
     change_pixmap_signal = pyqtSignal(QImage)  # 发送处理好的图像给UI显示
     stats_signal = pyqtSignal(dict)  # 发送检测到的统计数据
     
-    def __init__(self, video_path=0, model_path='best.pt'):
+    def __init__(self, video_path=None, model_path=None):
         """初始化YOLO视频检测线程
         
         Args:
-            video_path: 视频文件路径或摄像头ID（默认0）
-            model_path: YOLO模型文件路径（默认使用best.pt）
+            video_path: 视频文件路径或摄像头ID（默认None，从配置读取）
+            model_path: YOLO模型文件路径（默认None，从配置读取）
         """
         super().__init__()
+        self.config_manager = ConfigManager()
+        
+        # 如果未提供参数，从配置读取
+        if video_path is None:
+            # 默认为摄像头ID 0
+            video_path = self.config_manager.get("Camera", "camera_id")
+            
+        if model_path is None:
+            model_path = self.config_manager.get("Detection", "model_path")
+            
         self._video_path = video_path
         self._model_path = model_path
         self._yolo_model = None
@@ -45,16 +57,19 @@ class YOLOThread(BaseThread):
                 self._yolo_model.initialize()
                 if not self._yolo_model.is_initialized:
                     error_msg = "YOLO检测模型初始化失败"
+                    logger.error(error_msg)
                     self.stats_signal.emit({"error": error_msg})
                     return
             except FileNotFoundError:
                 # 模型文件不存在时发送错误信号
                 error_msg = f"YOLO检测模型初始化失败: [Errno 2] No such file or directory: '{self._model_path}'"
+                logger.error(error_msg)
                 self.stats_signal.emit({"error": error_msg})
                 return
             except Exception as e:
                 # 其他模型加载错误
                 error_msg = f"YOLO检测模型初始化失败: {str(e)}"
+                logger.error(error_msg)
                 self.stats_signal.emit({"error": error_msg})
                 return
             
@@ -62,6 +77,7 @@ class YOLOThread(BaseThread):
             self._cap = cv2.VideoCapture(self._video_path)
             if not self._cap.isOpened():
                 error_msg = f"无法打开视频源: {self._video_path}"
+                logger.error(error_msg)
                 self.stats_signal.emit({"error": error_msg})
                 return
             

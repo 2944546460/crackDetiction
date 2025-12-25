@@ -8,13 +8,17 @@
 
 from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QFrame, 
-    QGroupBox, QTextEdit, QSplitter, QPushButton
+    QGroupBox, QTextEdit, QSplitter, QPushButton, QRadioButton,
+    QButtonGroup, QLineEdit, QFileDialog, QMessageBox, QSizePolicy
 )
 from PyQt5.QtGui import QFont, QPixmap, QImage
 from PyQt5.QtCore import Qt
 import sys
+import os
 import random
+import cv2
 from datetime import datetime
+from utils.logger import logger
 
 # 导入Matplotlib相关模块
 import matplotlib.pyplot as plt
@@ -38,6 +42,10 @@ class TrafficPage(QWidget):
         self.x_data = []  # 存储时间轴
         self.y_data = []  # 存储车辆数
         
+        # 信号源相关变量
+        self.video_source = 0  # 默认为摄像头ID 0
+        self.source_type = 'camera'  # 'camera' 或 'file'
+        
         self._init_ui()
         self._init_chart()
         # 注意：这里不再初始化定时器，完全由视频线程驱动
@@ -53,6 +61,59 @@ class TrafficPage(QWidget):
         title_label = QLabel("交通荷载")
         title_label.setStyleSheet("QLabel { font-size: 20px; font-weight: bold; margin-bottom: 10px; font-family: 'Microsoft YaHei'; }")
         main_layout.addWidget(title_label)
+        
+        # --- 新增：信号源选择栏 ---
+        source_group = QGroupBox("信号源选择")
+        source_group.setStyleSheet("""
+            QGroupBox {
+                font-weight: bold;
+                border: 1px solid #e0e0e0;
+                border-radius: 8px;
+                margin-top: 10px;
+                padding-top: 15px;
+            }
+        """)
+        source_layout = QHBoxLayout(source_group)
+        source_layout.setSpacing(15)
+        
+        # 单选按钮组
+        self.camera_radio = QRadioButton("实时摄像头")
+        self.file_radio = QRadioButton("视频文件")
+        self.camera_radio.setChecked(True)
+        
+        self.source_group_btns = QButtonGroup(self)
+        self.source_group_btns.addButton(self.camera_radio, 0)
+        self.source_group_btns.addButton(self.file_radio, 1)
+        self.source_group_btns.buttonClicked.connect(self._on_source_type_changed)
+        
+        source_layout.addWidget(self.camera_radio)
+        source_layout.addWidget(self.file_radio)
+        
+        # 路径显示
+        self.path_edit = QLineEdit()
+        self.path_edit.setPlaceholderText("未选择视频文件")
+        self.path_edit.setReadOnly(True)
+        self.path_edit.setStyleSheet("background-color: #f5f7fa; color: #909399;")
+        source_layout.addWidget(self.path_edit, 1)
+        
+        # 选择文件按钮
+        self.select_file_btn = QPushButton("📂 选择文件")
+        self.select_file_btn.setEnabled(False) # 初始禁用
+        self.select_file_btn.setCursor(Qt.PointingHandCursor)
+        self.select_file_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #ffffff;
+                border: 1px solid #dcdfe6;
+                padding: 5px 15px;
+                border-radius: 4px;
+            }
+            QPushButton:hover { border-color: #3498db; color: #3498db; }
+            QPushButton:disabled { background-color: #f5f7fa; color: #c0c4cc; }
+        """)
+        self.select_file_btn.clicked.connect(self._on_select_file)
+        source_layout.addWidget(self.select_file_btn)
+        
+        main_layout.addWidget(source_group)
         
         # 创建内容区域
         content_section = QGroupBox()
@@ -238,40 +299,128 @@ class TrafficPage(QWidget):
         """开始监测"""
         if not self.yolo_thread:
             try:
+                # 确定信号源
+                if self.source_type == 'camera':
+                    from utils.config_manager import ConfigManager
+                    config = ConfigManager()
+                    source = config.get("Camera", "camera_id")
+                    # 尝试转为整数（如果是摄像头索引）
+                    try:
+                        source = int(source)
+                    except (ValueError, TypeError):
+                        pass
+                else:
+                    source = self.video_source
+                    if not source or not os.path.exists(str(source)):
+                        QMessageBox.warning(self, "错误", "请先选择有效的视频文件！")
+                        return
+
                 # 尝试导入视频线程
-                from threads.video_detection_thread import VideoDetectionThread
-                self.yolo_thread = VideoDetectionThread(video_path=0) # 0 代表摄像头，或传入视频路径
-                
-                # 连接信号：frame_processed_signal 携带 (frame, result)
+                    from threads.video_detection_thread import VideoDetectionThread
+                    
+                    # 显式指定使用 yolo11n.pt 车辆检测模型
+                    self.yolo_thread = VideoDetectionThread(video_path=source, model_path="yolo11n.pt")
+                    
+                    # 连接信号
                 self.yolo_thread.frame_processed_signal.connect(self._update_video_label_from_frame)
                 self.yolo_thread.finished_signal.connect(self._on_thread_finished)
                 
+                # 检查视频源是否能打开
+                cap = cv2.VideoCapture(source)
+                if not cap.isOpened():
+                    QMessageBox.critical(self, "连接失败", f"无法打开视频源: {source}\n请检查摄像头连接或视频文件路径。")
+                    self.yolo_thread = None
+                    return
+                cap.release()
+
                 self.yolo_thread.start()
                 
                 self.start_btn.setEnabled(False)
                 self.stop_btn.setEnabled(True)
-                self._add_log("[INFO] 监测系统启动，正在连接视频流...")
+                self.camera_radio.setEnabled(False)
+                self.file_radio.setEnabled(False)
+                self.select_file_btn.setEnabled(False)
+                
+                self._add_log(f"[INFO] 监测系统启动，源: {source}")
             except Exception as e:
-                self._add_log(f"[ERROR] 启动失败: {str(e)}")
+                import traceback
+                logger.error(f"启动交通监测失败: {e}\n{traceback.format_exc()}")
+                QMessageBox.critical(self, "错误", f"启动监测失败: {str(e)}")
+                self.yolo_thread = None
 
     def _on_stop_monitoring(self):
         """停止监测"""
-        if self.yolo_thread and self.yolo_thread.is_running:
+        if self.yolo_thread:
             self.yolo_thread.stop()
-            self._add_log("[INFO] 正在停止监测...")
+            self.yolo_thread.wait() # 等待线程完全退出
+            self.yolo_thread = None
             
-            # 按钮状态将在线程结束信号中更新
+            self._add_log("[INFO] 监测已停止")
+            
+            # 按钮状态恢复
             self.start_btn.setEnabled(True)
             self.stop_btn.setEnabled(False)
+            self.camera_radio.setEnabled(True)
+            self.file_radio.setEnabled(True)
+            if self.source_type == 'file':
+                self.select_file_btn.setEnabled(True)
             
-            # 保存数据到数据库
+            # 1. 清空画面 (显示黑色背景)
+            black_pixmap = QPixmap(self.video_label.size())
+            black_pixmap.fill(Qt.black)
+            self.video_label.setPixmap(black_pixmap)
+            
+            # 2. 重置数据和图表
+            self._reset_data()
+            
+            # 3. 保存数据到数据库
             self._save_traffic_data()
-            
-            # 重置界面显示为0
-            self._reset_display_to_zero()
-            
+
+    def _on_source_type_changed(self, button):
+        """信号源类型切换事件"""
+        if button == self.camera_radio:
+            self.source_type = 'camera'
+            self.select_file_btn.setEnabled(False)
+            self.path_edit.setText("")
         else:
-            self._reset_display_to_zero()
+            self.source_type = 'file'
+            self.select_file_btn.setEnabled(True)
+            if hasattr(self, 'video_source') and isinstance(self.video_source, str):
+                self.path_edit.setText(self.video_source)
+
+    def _on_select_file(self):
+        """选择视频文件"""
+        file_path, _ = QFileDialog.getOpenFileName(
+            self, "选择视频文件", "", "Video Files (*.mp4 *.avi *.mkv *.mov);;All Files (*)"
+        )
+        if file_path:
+            self.video_source = file_path
+            self.path_edit.setText(file_path)
+            self.file_radio.setChecked(True)
+            self.source_type = 'file'
+
+    def _reset_data(self):
+        """重置所有统计数据和图表"""
+        self.vehicle_count = 0
+        self.x_data = []
+        self.y_data = []
+        
+        # 更新卡片显示
+        self._reset_display_to_zero()
+        
+        # 重置图表
+        self.line.set_data([], [])
+        self.ax.set_xlim(0, 10)
+        self.canvas.draw()
+        
+        self._add_log("[INFO] 统计数据已重置")
+
+    def closeEvent(self, event):
+        """窗口关闭事件：确保线程退出"""
+        if self.yolo_thread and self.yolo_thread.isRunning():
+            self.yolo_thread.stop()
+            self.yolo_thread.wait()
+        super().closeEvent(event)
 
     def _update_video_label_from_frame(self, frame, result):
         """
@@ -289,30 +438,35 @@ class TrafficPage(QWidget):
         car_count = stats.get("car", 0)
         truck_count = stats.get("truck", 0)
         bus_count = stats.get("bus", 0)
-        total_vehicles = car_count + truck_count + bus_count
+        current_vehicles = stats.get("current_frame_vehicles", 0)
+        total_flow = stats.get("total_vehicles", 0)
+        avg_speed = stats.get("avg_speed", 0)
         
-        self.vehicle_count = total_vehicles # 更新成员变量
+        self.vehicle_count = current_vehicles # 更新当前帧车辆数
         
         # 3. 更新全局状态 (用于报告页)
         from utils.global_state import global_state
-        global_state.update_traffic_stats(total_vehicles, truck_count, car_count, bus_count)
+        global_state.update_traffic_stats(total_flow, truck_count, car_count, bus_count)
         
         # 4. 更新界面卡片
-        self._update_status_card(self.vehicle_count_card, str(total_vehicles))
+        # 将车辆数卡片显示为：当前: X / 累计: Y
+        self._update_status_card(self.vehicle_count_card, f"{current_vehicles} (累计: {total_flow})")
         
-        # 模拟计算逻辑：车越多，速度越慢；车越多，占用率越高
-        # 假设最大容量50辆
-        lane_occupation = min(100, int((total_vehicles / 50.0) * 100))
-        # 假设空载速度80，满载速度20
-        fake_speed = max(20, int(80 - (total_vehicles * 1.2)))
+        # 计算逻辑优化：
+        # 1. 车速：使用检测线程计算出的真实位移速度
+        display_speed = int(avg_speed) if avg_speed > 0 else 0
         
-        self._update_status_card(self.average_speed_card, f"{fake_speed} km/h")
+        # 2. 车道占用率：根据当前画面车辆密度计算
+        # 假设单画面超过 15 辆车即为 100% 拥堵
+        lane_occupation = min(100, int((current_vehicles / 15.0) * 100))
+        
+        self._update_status_card(self.average_speed_card, f"{display_speed} km/h")
         self._update_status_card(self.lane_occupation_card, f"{lane_occupation}%")
         
-        # 5. 更新图表 (Real-time Chart)
+        # 5. 更新图表 (Real-time Chart) - 绘制当前车辆数变化
         current_time = datetime.now().strftime('%H:%M:%S')
         self.x_data.append(current_time)
-        self.y_data.append(total_vehicles)
+        self.y_data.append(current_vehicles)
         
         # 保持图表窗口大小 (最近10个点)
         if len(self.x_data) > 10:
@@ -332,11 +486,17 @@ class TrafficPage(QWidget):
         # self._add_log(f"[{current_time}] 车辆: {total_vehicles} (重车: {truck_count})")
 
     def _on_thread_finished(self):
-        """线程结束清理"""
+        """线程结束时的处理"""
+        # 仅仅恢复按钮状态，不要直接重置数据，让用户能看到最后的结果
         self.start_btn.setEnabled(True)
         self.stop_btn.setEnabled(False)
-        self._add_log("[INFO] 监测线程已结束")
+        self.camera_radio.setEnabled(True)
+        self.file_radio.setEnabled(True)
+        if self.source_type == 'file':
+            self.select_file_btn.setEnabled(True)
+        
         self.yolo_thread = None
+        self._add_log("[INFO] 视频处理完成。")
 
     def _save_traffic_data(self):
         """保存数据到数据库"""

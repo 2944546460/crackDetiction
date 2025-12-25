@@ -1,0 +1,16 @@
+{
+    "Detection": {
+        "conf_threshold": 0.25,
+        "iou_threshold": 0.45,
+        "model_path": "E:/crackTest/test1/best_seg.pt",
+        "pixel_ratio": 0.11624763874381927
+    },
+    "Camera": {
+        "camera_id": 0,
+        "resolution": "1920x1080"
+    },
+    "System": {
+        "save_dir": "outputs",
+        "theme": "dark"
+    }
+}

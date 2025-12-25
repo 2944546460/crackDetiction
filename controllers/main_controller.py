@@ -13,6 +13,7 @@ from threads.video_detection_thread import VideoDetectionThread, ImageDetectionT
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QPixmap, QImage
 import cv2
+from utils.logger import logger
 
 
 class MainController(BaseController):
@@ -26,23 +27,34 @@ class MainController(BaseController):
         self._detection_model = None
         self._analysis_model = None
     
-    def initialize(self):
-        """初始化控制器"""
+    def initialize(self, models=None):
+        """初始化控制器
+        
+        Args:
+            models: 预加载的模型字典 (可选)
+        """
         # 创建并初始化视图
         self._main_window = MainWindow()
         self._main_window.initialize()
         
-        # 创建并初始化模型
-        self._detection_model = YoloModel()
-        self._detection_model.initialize()
+        # 使用预加载的模型或创建新模型
+        if models:
+            self._detection_model = models.get('detection')
+            self._analysis_model = models.get('analysis')
+            logger.info("主控制器使用预加载的模型")
         
-        self._analysis_model = CrackAnalysisModel()
-        self._analysis_model.initialize()
+        if not self._detection_model:
+            self._detection_model = YoloModel()
+            self._detection_model.initialize()
+            
+        if not self._analysis_model:
+            self._analysis_model = CrackAnalysisModel()
+            self._analysis_model.initialize()
         
         # 连接信号与槽
         self._connect_signals()
         
-        print("主控制器初始化完成")
+        logger.info("主控制器初始化完成")
     
     def _connect_signals(self):
         """连接视图信号与控制器槽函数"""
@@ -58,12 +70,12 @@ class MainController(BaseController):
     def _on_home_btn_clicked(self):
         """首页总览按钮点击事件"""
         self._main_window.stacked_widget.setCurrentIndex(0)
-        print("切换到首页总览")
+        logger.info("切换到首页总览")
     
     def _on_detection_btn_clicked(self):
         """裂缝检测按钮点击事件"""
         self._main_window.stacked_widget.setCurrentIndex(1)
-        print("切换到裂缝检测")
+        logger.info("切换到裂缝检测")
         
         # 如果裂缝检测页面尚未初始化，进行初始化
         if not hasattr(self._main_window, 'detection_page') or not self._main_window.detection_page:
@@ -72,12 +84,12 @@ class MainController(BaseController):
     def _on_traffic_btn_clicked(self):
         """交通荷载按钮点击事件"""
         self._main_window.stacked_widget.setCurrentIndex(2)
-        print("切换到交通荷载")
+        logger.info("切换到交通荷载")
     
     def _on_report_btn_clicked(self):
         """评估报告按钮点击事件"""
         self._main_window.stacked_widget.setCurrentIndex(3)
-        print("切换到评估报告")
+        logger.info("切换到评估报告")
     
     def _initialize_detection_page(self):
         """初始化裂缝检测页面"""
@@ -89,10 +101,10 @@ class MainController(BaseController):
             # 注意：这里需要根据实际的裂缝检测页面设计进行实现
             
             # 示例：添加视频播放和控制组件
-            print("裂缝检测页面初始化完成")
+            logger.info("裂缝检测页面初始化完成")
             
         except Exception as e:
-            print(f"裂缝检测页面初始化失败: {e}")
+            logger.error(f"裂缝检测页面初始化失败: {e}")
     
     def start_video_detection(self, video_path):
         """开始视频检测
@@ -182,31 +194,31 @@ class MainController(BaseController):
     
     def _on_video_detection_started(self):
         """视频检测开始事件"""
-        print("视频检测开始")
+        logger.info("视频检测开始")
         # 更新UI状态
         # self._main_window.set_detection_status("检测中")
     
     def _on_video_detection_finished(self):
         """视频检测完成事件"""
-        print("视频检测完成")
+        logger.info("视频检测完成")
         # 更新UI状态
         # self._main_window.set_detection_status("检测完成")
     
     def _on_video_detection_progress(self, progress):
         """视频检测进度更新事件"""
-        print(f"视频检测进度: {progress}%")
+        logger.debug(f"视频检测进度: {progress}%")
         # 更新UI进度条
         # self._main_window.set_progress(progress)
     
     def _on_video_detection_result(self, result):
         """视频检测结果事件"""
-        print(f"视频检测结果: {result}")
+        logger.info(f"视频检测结果: {result}")
         # 显示检测结果
         # self._main_window.display_detection_result(result)
     
     def _on_video_detection_error(self, error_msg):
         """视频检测错误事件"""
-        print(f"视频检测错误: {error_msg}")
+        logger.error(f"视频检测错误: {error_msg}")
         # 显示错误信息
         # self._main_window.show_error_message("检测错误", error_msg)
     
@@ -218,15 +230,15 @@ class MainController(BaseController):
     
     def _on_image_detection_started(self):
         """图像检测开始事件"""
-        print("图像检测开始")
+        logger.info("图像检测开始")
     
     def _on_image_detection_finished(self):
         """图像检测完成事件"""
-        print("图像检测完成")
+        logger.info("图像检测完成")
     
     def _on_image_detection_result(self, result):
         """图像检测结果事件"""
-        print(f"图像检测结果: {result}")
+        logger.info(f"图像检测结果: {result}")
         # 显示检测结果图像
         if result and "processed_image" in result:
             processed_image = result["processed_image"]
@@ -234,25 +246,25 @@ class MainController(BaseController):
     
     def _on_image_detection_error(self, error_msg):
         """图像检测错误事件"""
-        print(f"图像检测错误: {error_msg}")
+        logger.error(f"图像检测错误: {error_msg}")
     
     def _on_crack_analysis_started(self):
         """裂缝分析开始事件"""
-        print("裂缝分析开始")
+        logger.info("裂缝分析开始")
     
     def _on_crack_analysis_finished(self):
         """裂缝分析完成事件"""
-        print("裂缝分析完成")
+        logger.info("裂缝分析完成")
     
     def _on_crack_analysis_result(self, result):
         """裂缝分析结果事件"""
-        print(f"裂缝分析结果: {result}")
+        logger.info(f"裂缝分析结果: {result}")
         # 显示分析结果
         # self._main_window.display_analysis_result(result)
     
     def _on_crack_analysis_error(self, error_msg):
         """裂缝分析错误事件"""
-        print(f"裂缝分析错误: {error_msg}")
+        logger.error(f"裂缝分析错误: {error_msg}")
     
     def _display_image(self, image, label):
         """在标签上显示图像
@@ -277,7 +289,7 @@ class MainController(BaseController):
             # 在标签上显示图像
             label.setPixmap(scaled_pixmap)
         except Exception as e:
-            print(f"显示图像失败: {e}")
+            logger.error(f"显示图像失败: {e}")
     
     def show_main_window(self):
         """显示主窗口"""
@@ -298,4 +310,4 @@ class MainController(BaseController):
         if self._analysis_model:
             self._analysis_model.release()
         
-        print("主控制器资源已释放")
+        logger.info("主控制器资源已释放")

@@ -9,7 +9,7 @@
 from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QGridLayout, QSpinBox,
     QPushButton, QLabel, QFrame, QHBoxLayout,
-    QTextBrowser, QSizePolicy, QMessageBox
+    QTextBrowser, QSizePolicy, QMessageBox, QProgressDialog
 )
 import numpy as np
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
@@ -316,5 +316,45 @@ class ReportPage(QWidget):
         self.export_btn.show()
 
     def _export_pdf(self):
-        """导出PDF存根"""
-        QMessageBox.information(self, "导出成功", "PDF 报告已生成并保存至 /reports 目录！\n(演示功能)")
+        """导出PDF报告"""
+        try:
+            # 准备数据
+            data = {
+                "score": 100 - self.crack_spinbox.value() - self.traffic_spinbox.value(),
+                "crack_penalty": self.crack_spinbox.value(),
+                "traffic_penalty": self.traffic_spinbox.value(),
+                "diagnosis_text": self.diagnosis_text.toHtml()
+            }
+            
+            # 创建进度对话框
+            self.progress_dialog = QProgressDialog("正在生成 PDF 报告...", "取消", 0, 100, self)
+            self.progress_dialog.setWindowTitle("导出中")
+            self.progress_dialog.setWindowModality(Qt.WindowModal)
+            self.progress_dialog.setMinimumDuration(0)
+            self.progress_dialog.setAutoClose(True)
+            
+            # 创建并启动导出线程
+            from threads.report_thread import PDFExportThread
+            self.export_thread = PDFExportThread(data)
+            self.export_thread.progress_signal.connect(self.progress_dialog.setValue)
+            self.export_thread.result_signal.connect(self._on_export_finished)
+            
+            # 连接取消按钮
+            self.progress_dialog.canceled.connect(self.export_thread.stop)
+            
+            self.export_thread.start()
+            self.progress_dialog.show()
+            
+        except Exception as e:
+            QMessageBox.critical(self, "导出失败", f"导出 PDF 报告时发生错误: {str(e)}")
+
+    def _on_export_finished(self, result):
+        """导出完成事件"""
+        if hasattr(self, 'progress_dialog'):
+            self.progress_dialog.close()
+            
+        if result.get("success"):
+            filepath = result.get("filepath")
+            QMessageBox.information(self, "导出成功", f"PDF 报告已成功导出至：\n{filepath}")
+        else:
+            QMessageBox.critical(self, "导出失败", f"导出 PDF 报告失败: {result.get('error')}")

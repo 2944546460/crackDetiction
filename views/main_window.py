@@ -25,6 +25,7 @@ from PyQt5.QtWidgets import (
 )
 from PyQt5.QtGui import QFont, QIcon
 from PyQt5.QtCore import Qt
+from utils.logger import logger
 
 # 尝试不同的导入方式，确保无论是直接运行还是作为模块导入都能正常工作
 try:
@@ -33,12 +34,14 @@ try:
     from views.report_page import ReportPage
     from views.traffic_page import TrafficPage
     from views.history_page import HistoryPage
+    from views.settings_page import SettingsPage
 except ImportError:
     from detection_page import DetectionPage
     from dashboard_page import DashboardPage
     from report_page import ReportPage
     from traffic_page import TrafficPage
     from history_page import HistoryPage
+    from settings_page import SettingsPage
 
 # 导入YOLO视频检测线程
 try:
@@ -47,7 +50,7 @@ except ImportError:
     try:
         from video_threads import YOLOThread
     except ImportError:
-        print("无法导入YOLOThread类")
+        logger.error("无法导入YOLOThread类")
         YOLOThread = None
 
 
@@ -58,6 +61,8 @@ class MainWindow(QMainWindow):
         super().__init__()
         # 设置窗口标题和大小
         self.setWindowTitle("智桥卫士 (Bridge Monitor)")
+        # 设置窗口图标
+        self.setWindowIcon(QIcon("icons/logo.png"))
         self.resize(1200, 800)
         
         # 初始化UI组件
@@ -85,6 +90,8 @@ class MainWindow(QMainWindow):
         self.nav_frame = QFrame()
         self.nav_frame.setObjectName("nav_frame")
         self.nav_frame.setFixedWidth(200)
+        # 显式设置大小策略，允许垂直伸缩
+        self.nav_frame.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Expanding)
         
         # 创建导航栏布局（垂直布局）
         nav_layout = QVBoxLayout(self.nav_frame)
@@ -103,8 +110,9 @@ class MainWindow(QMainWindow):
         self.traffic_btn = QPushButton("🚛 交通荷载")
         self.report_btn = QPushButton("📋 评估报告")
         self.history_btn = QPushButton("📊 历史记录")
+        self.settings_btn = QPushButton("⚙️ 系统设置")
         # 将按钮放入一个列表，方便批量处理
-        self.nav_btns = [self.home_btn, self.detection_btn, self.traffic_btn, self.report_btn, self.history_btn]
+        self.nav_btns = [self.home_btn, self.detection_btn, self.traffic_btn, self.report_btn, self.history_btn, self.settings_btn]
         
         for btn in self.nav_btns:
             btn.setMinimumHeight(50)
@@ -124,11 +132,7 @@ class MainWindow(QMainWindow):
         self.traffic_btn.setObjectName("traffic_btn")
         self.report_btn.setObjectName("report_btn")
         self.history_btn.setObjectName("history_btn")
-        
-        for btn in [self.home_btn, self.detection_btn, self.traffic_btn, self.report_btn, self.history_btn]:
-            btn.setMinimumHeight(50)
-            btn.setCursor(Qt.PointingHandCursor)
-            nav_layout.addWidget(btn)
+        self.settings_btn.setObjectName("settings_btn")
         
         # 添加伸缩空间，使按钮靠上排列
         nav_layout.addStretch()
@@ -150,12 +154,16 @@ class MainWindow(QMainWindow):
         # 创建历史记录页面
         self.history_page = HistoryPage()
         
+        # 创建设置页面
+        self.settings_page = SettingsPage()
+        
         # 将页面添加到多页面容器
         self.stacked_widget.addWidget(self.home_page)
         self.stacked_widget.addWidget(self.detection_page)
         self.stacked_widget.addWidget(self.traffic_page)
         self.stacked_widget.addWidget(self.report_page)
         self.stacked_widget.addWidget(self.history_page)
+        self.stacked_widget.addWidget(self.settings_page)
         
         # 将左侧导航栏和右侧多页面容器添加到主布局
         main_layout.addWidget(self.nav_frame)
@@ -173,6 +181,7 @@ class MainWindow(QMainWindow):
         self.traffic_btn.clicked.connect(lambda: self.stacked_widget.setCurrentIndex(2))
         self.report_btn.clicked.connect(lambda: self.stacked_widget.setCurrentIndex(3))
         self.history_btn.clicked.connect(lambda: self.stacked_widget.setCurrentIndex(4))
+        self.settings_btn.clicked.connect(lambda: self.stacked_widget.setCurrentIndex(5))
     
     def initialize(self):
         """初始化主窗口"""
@@ -228,9 +237,14 @@ class MainWindow(QMainWindow):
     def _on_start_monitoring(self):
         """开始监测按钮点击事件"""
         if not self.yolo_thread:
-            # 实例化VideoDetectionThread视频检测线程（默认使用摄像头0）
+            # 实例化VideoDetectionThread视频检测线程
             from threads.video_detection_thread import VideoDetectionThread
-            self.yolo_thread = VideoDetectionThread(video_path=0)
+            from utils.config_manager import ConfigManager
+            
+            config = ConfigManager()
+            camera_id = config.get("Camera", "camera_id")
+            
+            self.yolo_thread = VideoDetectionThread(video_path=camera_id)
             
             # 连接线程信号
             self.yolo_thread.frame_processed_signal.connect(self._update_video_label_from_frame)
@@ -245,7 +259,7 @@ class MainWindow(QMainWindow):
             self.stop_btn.setEnabled(True)
             
             # 添加日志信息
-            self.log_textedit.append("[INFO] 开始交通荷载监测")
+            self.log_textedit.append(f"[INFO] 开始交通荷载监测 (Camera ID: {camera_id})")
         else:
             self.log_textedit.append("[ERROR] 监测已经在运行中或YOLOThread未正确导入")
     
@@ -369,7 +383,7 @@ if __name__ == "__main__":
             if os.path.exists(qt_plugins_path):
                 os.environ['QT_QPA_PLATFORM_PLUGIN_PATH'] = qt_plugins_path
         except Exception as e:
-            print(f"无法设置Qt平台插件路径: {e}")
+            logger.error(f"无法设置Qt平台插件路径: {e}")
     
     # 创建应用程序实例
     app = QApplication(sys.argv)
@@ -379,7 +393,7 @@ if __name__ == "__main__":
         from utils.styles import GLOBAL_STYLE
         app.setStyleSheet(GLOBAL_STYLE) # 这一句至关重要！
     except ImportError:
-        print("警告：未找到样式文件")
+        logger.warning("警告：未找到样式文件")
     
     # 设置应用程序样式
     app.setStyle("Fusion")  # 使用Fusion样式，提供更现代的界面

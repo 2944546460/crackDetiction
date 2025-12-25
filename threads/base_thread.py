@@ -9,7 +9,7 @@
 from PyQt5.QtCore import QThread, pyqtSignal
 import traceback
 import time
-
+from utils.logger import logger
 
 class BaseThread(QThread):
     """后台任务线程基类"""
@@ -41,6 +41,7 @@ class BaseThread(QThread):
         except Exception as e:
             # 捕获异常并发送错误信号
             error_msg = f"线程执行出错: {str(e)}\n{traceback.format_exc()}"
+            logger.exception("线程执行出错")
             self.error_signal.emit(error_msg)
         finally:
             self._is_running = False

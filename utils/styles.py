@@ -25,7 +25,8 @@ QPushButton#home_btn,
 QPushButton#detection_btn,
 QPushButton#traffic_btn,
 QPushButton#report_btn,
-QPushButton#history_btn {
+QPushButton#history_btn,
+QPushButton#settings_btn {
     background-color: #2c3e50;
     color: white;
     border: 1px solid transparent;
@@ -41,7 +42,8 @@ QPushButton#home_btn:hover,
 QPushButton#detection_btn:hover,
 QPushButton#traffic_btn:hover,
 QPushButton#report_btn:hover,
-QPushButton#history_btn:hover {
+QPushButton#history_btn:hover,
+QPushButton#settings_btn:hover {
     background-color: #34495e;
     border-color: #34495e;
 }
@@ -50,7 +52,8 @@ QPushButton#home_btn:checked,
 QPushButton#detection_btn:checked,
 QPushButton#traffic_btn:checked,
 QPushButton#report_btn:checked,
-QPushButton#history_btn:checked {
+QPushButton#history_btn:checked,
+QPushButton#settings_btn:checked {
     background-color: #34495e;
     border-left: 4px solid #3498db; /* 左侧亮条加粗一点 */
     color: #ffffff;

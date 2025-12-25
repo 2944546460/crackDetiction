@@ -9,7 +9,8 @@
 from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QGroupBox, QTableWidget,
     QTableWidgetItem, QLabel, QFrame, QSplitter, QPushButton, QDialog,
-    QScrollArea, QGridLayout, QSizePolicy
+    QScrollArea, QGridLayout, QSizePolicy, QHeaderView, QProgressDialog,
+    QMessageBox
 )
 from PyQt5.QtGui import QPixmap, QFont
 from PyQt5.QtCore import Qt, QDate
@@ -19,6 +20,7 @@ from matplotlib.figure import Figure
 from matplotlib import rcParams
 import os
 import sys
+from utils.logger import logger
 
 # 添加项目根目录到Python路径，确保能够正确导入模块
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -44,77 +46,172 @@ class HistoryPage(QWidget):
     
     def _init_ui(self):
         """初始化UI组件"""
+        # 设置页面背景色
+        self.setStyleSheet("background-color: #f4f6f9;")
+
         # 创建主布局（垂直布局）
         main_layout = QVBoxLayout(self)
         main_layout.setSpacing(20)
         main_layout.setContentsMargins(20, 20, 20, 20)
         
-        # 创建标题
-        title_label = QLabel("历史记录")
-        title_label.setStyleSheet("QLabel { font-size: 20px; font-weight: bold; margin-bottom: 10px; }")
-        main_layout.addWidget(title_label)
+        # --- 上半部分：表格卡片 ---
+        table_card = QFrame()
+        table_card.setObjectName("table_card")
+        table_card.setStyleSheet("""
+            QFrame#table_card {
+                background-color: #ffffff;
+                border: 1px solid #e0e0e0;
+                border-radius: 10px;
+                padding: 15px;
+            }
+        """)
+        table_layout = QVBoxLayout(table_card)
+        table_layout.setSpacing(15)
+
+        # 1. 工具栏
+        toolbar_layout = QHBoxLayout()
         
-        # 创建上下结构的分割器
-        main_splitter = QSplitter(Qt.Vertical)
+        # 标题
+        table_title = QLabel("检测记录列表")
+        table_title.setStyleSheet("font-size: 16px; font-weight: bold; color: #333333; font-family: 'Microsoft YaHei'; border: none; background: transparent;")
+        toolbar_layout.addWidget(table_title)
         
-        # 上半部分：表格区域
-        table_group = QGroupBox("检测记录")
-        table_layout = QVBoxLayout(table_group)
+        toolbar_layout.addStretch() # 弹簧
         
-        # 创建表格
+        # 刷新按钮
+        refresh_btn = QPushButton("刷新数据")
+        refresh_btn.setCursor(Qt.PointingHandCursor)
+        refresh_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #3498db;
+                color: white;
+                border: none;
+                border-radius: 5px;
+                padding: 6px 15px;
+                font-weight: bold;
+            }
+            QPushButton:hover { background-color: #2980b9; }
+        """)
+        refresh_btn.clicked.connect(self._load_data)
+        toolbar_layout.addWidget(refresh_btn)
+
+        # 导出按钮
+        export_btn = QPushButton("导出 Excel")
+        export_btn.setCursor(Qt.PointingHandCursor)
+        export_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #27ae60;
+                color: white;
+                border: none;
+                border-radius: 5px;
+                padding: 6px 15px;
+                font-weight: bold;
+            }
+            QPushButton:hover { background-color: #219150; }
+        """)
+        export_btn.clicked.connect(self._export_data) # 绑定导出功能
+        toolbar_layout.addWidget(export_btn)
+        
+        table_layout.addLayout(toolbar_layout)
+        
+        # 2. 表格
         self.table_widget = QTableWidget()
         self.table_widget.setColumnCount(5)
         self.table_widget.setHorizontalHeaderLabels(["时间", "类型", "结果摘要", "健康分", "操作"])
         
-        # 设置表格属性
+        # 表格样式
+        self.table_widget.setStyleSheet("""
+            QTableWidget {
+                border: 1px solid #eeeeee;
+                background-color: white;
+                gridline-color: #eeeeee;
+            }
+            QHeaderView::section {
+                background-color: #f8f9fa;
+                padding: 8px;
+                border: none;
+                border-bottom: 1px solid #eeeeee;
+                font-weight: bold;
+                color: #555555;
+            }
+            QTableWidget::item {
+                padding: 5px;
+            }
+            QTableWidget::item:selected {
+                background-color: #e3f2fd;
+                color: #333333;
+            }
+        """)
+        
+        # 属性设置
         self.table_widget.setEditTriggers(QTableWidget.NoEditTriggers)  # 禁止编辑
         self.table_widget.setSelectionBehavior(QTableWidget.SelectRows)  # 整行选择
         self.table_widget.setSelectionMode(QTableWidget.SingleSelection)  # 单选
+        self.table_widget.setAlternatingRowColors(True) # 隔行变色
+        self.table_widget.verticalHeader().setVisible(False) # 隐藏行号
+        
+        # 列宽自适应
+        header = self.table_widget.horizontalHeader()
+        header.setSectionResizeMode(QHeaderView.Stretch) # 自动铺满
+        header.setSectionResizeMode(4, QHeaderView.ResizeToContents) # 最后一列适应内容
         
         # 连接表格点击事件
         self.table_widget.cellClicked.connect(self._on_table_row_clicked)
         
-        # 添加刷新按钮
-        refresh_btn = QPushButton("刷新数据")
-        refresh_btn.clicked.connect(self._load_data)
-        
-        table_layout.addWidget(refresh_btn)
         table_layout.addWidget(self.table_widget)
         
-        main_splitter.addWidget(table_group)
+        # 添加表格卡片到主布局 (stretch=2)
+        main_layout.addWidget(table_card, 2)
         
-        # 下半部分：图表区域
-        charts_group = QGroupBox("数据统计")
-        charts_layout = QHBoxLayout(charts_group)
+        # --- 下半部分：图表卡片 ---
+        charts_card = QFrame()
+        charts_card.setObjectName("charts_card")
+        charts_card.setStyleSheet("""
+            QFrame#charts_card {
+                background-color: #ffffff;
+                border: 1px solid #e0e0e0;
+                border-radius: 10px;
+                padding: 15px;
+            }
+        """)
+        # 设置最小高度
+        charts_card.setMinimumHeight(300)
         
-        # 左右图表分割器
-        charts_splitter = QSplitter(Qt.Horizontal)
+        charts_layout = QVBoxLayout(charts_card)
+        charts_layout.setSpacing(10)
+        
+        # 标题
+        chart_title = QLabel("数据趋势分析")
+        chart_title.setStyleSheet("font-size: 16px; font-weight: bold; color: #333333; font-family: 'Microsoft YaHei'; border: none; background: transparent; margin-bottom: 5px;")
+        charts_layout.addWidget(chart_title)
+        
+        # 图表容器布局
+        graphs_layout = QHBoxLayout()
+        graphs_layout.setSpacing(20)
         
         # 左图：健康评分趋势图
         self.health_chart_container = QFrame()
-        self.health_chart_container.setMinimumHeight(300)
+        self.health_chart_container.setStyleSheet("background: transparent; border: none;")
         self._init_health_chart()
         
         # 右图：重车流量统计图
         self.truck_chart_container = QFrame()
-        self.truck_chart_container.setMinimumHeight(300)
+        self.truck_chart_container.setStyleSheet("background: transparent; border: none;")
         self._init_truck_chart()
         
-        charts_splitter.addWidget(self.health_chart_container)
-        charts_splitter.addWidget(self.truck_chart_container)
-        charts_splitter.setSizes([400, 400])  # 设置初始大小比例
+        graphs_layout.addWidget(self.health_chart_container)
+        graphs_layout.addWidget(self.truck_chart_container)
         
-        charts_layout.addWidget(charts_splitter)
+        charts_layout.addLayout(graphs_layout)
         
-        main_splitter.addWidget(charts_group)
-        main_splitter.setSizes([400, 300])  # 设置上下部分的初始大小比例
-        
-        main_layout.addWidget(main_splitter, 1)  # 添加伸缩因子，使内容随窗口大小变化
+        # 添加图表卡片到主布局 (stretch=1)
+        main_layout.addWidget(charts_card, 1)
     
     def _init_health_chart(self):
         """初始化健康评分趋势图"""
         # 创建图表布局
         chart_layout = QVBoxLayout(self.health_chart_container)
+        chart_layout.setContentsMargins(0, 0, 0, 0) # 移除内边距
         
         # 创建Figure对象
         self.health_figure = Figure(figsize=(8, 6), dpi=100)
@@ -125,6 +222,7 @@ class HistoryPage(QWidget):
         # 创建画布
         self.health_canvas = FigureCanvas(self.health_figure)
         self.health_canvas.setStyleSheet("background-color: transparent;")
+        self.health_canvas.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         
         # 添加画布到布局
         chart_layout.addWidget(self.health_canvas)
@@ -142,11 +240,11 @@ class HistoryPage(QWidget):
         self.health_ax.spines['bottom'].set_color('#bdc3c7')
         
         # 设置坐标轴标签
-        self.health_ax.set_xlabel('时间', fontsize=12, color='#34495e')
-        self.health_ax.set_ylabel('健康评分', fontsize=12, color='#34495e')
+        self.health_ax.set_xlabel('时间', fontsize=10, color='#666')
+        self.health_ax.set_ylabel('健康评分', fontsize=10, color='#666')
         
-        # 设置标题
-        self.health_ax.set_title('健康评分趋势图', fontsize=14, color='#2c3e50')
+        # 设置标题 (稍微调小字体以适应紧凑布局)
+        self.health_ax.set_title('健康评分趋势', fontsize=12, color='#333', pad=10)
         
         # 设置网格线
         self.health_ax.grid(True, linestyle='--', alpha=0.3, color='#bdc3c7')
@@ -155,6 +253,7 @@ class HistoryPage(QWidget):
         """初始化重车流量统计图"""
         # 创建图表布局
         chart_layout = QVBoxLayout(self.truck_chart_container)
+        chart_layout.setContentsMargins(0, 0, 0, 0)
         
         # 创建Figure对象
         self.truck_figure = Figure(figsize=(8, 6), dpi=100)
@@ -165,6 +264,7 @@ class HistoryPage(QWidget):
         # 创建画布
         self.truck_canvas = FigureCanvas(self.truck_figure)
         self.truck_canvas.setStyleSheet("background-color: transparent;")
+        self.truck_canvas.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         
         # 添加画布到布局
         chart_layout.addWidget(self.truck_canvas)
@@ -182,14 +282,14 @@ class HistoryPage(QWidget):
         self.truck_ax.spines['bottom'].set_color('#bdc3c7')
         
         # 设置坐标轴标签
-        self.truck_ax.set_xlabel('日期', fontsize=12, color='#34495e')
-        self.truck_ax.set_ylabel('重车数量', fontsize=12, color='#34495e')
+        self.truck_ax.set_xlabel('日期', fontsize=10, color='#666')
+        self.truck_ax.set_ylabel('重车数量', fontsize=10, color='#666')
         
         # 设置标题
-        self.truck_ax.set_title('重车流量统计图', fontsize=14, color='#2c3e50')
+        self.truck_ax.set_title('重车流量统计', fontsize=12, color='#333', pad=10)
         
         # 设置网格线
-        self.truck_ax.grid(True, linestyle='--', alpha=0.3, color='#bdc3c7')
+        self.truck_ax.grid(True, linestyle='--', alpha=0.3, color='#bdc3c7', axis='y')
     
     def _load_data(self):
         """加载历史记录数据"""
@@ -207,7 +307,7 @@ class HistoryPage(QWidget):
             self._update_charts()
             
         except Exception as e:
-            print(f"加载历史数据失败: {str(e)}")
+            logger.error(f"加载历史数据失败: {str(e)}")
     
     def _update_table(self):
         """更新表格显示"""
@@ -239,19 +339,111 @@ class HistoryPage(QWidget):
             self.table_widget.setItem(i, 0, QTableWidgetItem(timestamp))
             self.table_widget.setItem(i, 1, QTableWidgetItem(record_type))
             self.table_widget.setItem(i, 2, QTableWidgetItem(result_summary))
-            self.table_widget.setItem(i, 3, QTableWidgetItem(f"{score:.1f}"))
+            
+            score_item = QTableWidgetItem(f"{score:.1f}")
+            score_item.setTextAlignment(Qt.AlignCenter)
+            if score < 60:
+                score_item.setForeground(Qt.red)
+            elif score > 90:
+                score_item.setForeground(Qt.darkGreen)
+            self.table_widget.setItem(i, 3, score_item)
             
             # 添加操作按钮
-            view_btn = QPushButton("查看详情")
+            view_btn = QPushButton("查看")
+            view_btn.setCursor(Qt.PointingHandCursor)
+            view_btn.setStyleSheet("""
+                QPushButton {
+                    color: #3498db;
+                    border: 1px solid #3498db;
+                    border-radius: 4px;
+                    padding: 2px 8px;
+                    background-color: white;
+                }
+                QPushButton:hover {
+                    background-color: #3498db;
+                    color: white;
+                }
+            """)
             view_btn.clicked.connect(lambda checked, idx=i: self._on_view_details(idx))
-            self.table_widget.setCellWidget(i, 4, view_btn)
+            
+            # 创建一个Widget来居中按钮
+            btn_widget = QWidget()
+            btn_layout = QHBoxLayout(btn_widget)
+            btn_layout.setContentsMargins(5, 2, 5, 2)
+            btn_layout.addWidget(view_btn)
+            self.table_widget.setCellWidget(i, 4, btn_widget)
         
-        # 调整列宽
-        self.table_widget.resizeColumnsToContents()
+        # 不再需要手动 resizeColumnsToContents，因为使用了 Stretch 模式
+        # self.table_widget.resizeColumnsToContents()
         
-        # 设置最后一列宽度固定
-        self.table_widget.setColumnWidth(4, 100)
+        # 设置最后一列宽度固定 (通过HeaderView设置了，这里无需重复)
     
+    def _export_data(self):
+        """导出数据到 Excel"""
+        if not self.history_data:
+            QMessageBox.warning(self, "警告", "没有历史数据可供导出")
+            return
+            
+        try:
+            # 准备数据，展平详情
+            export_list = []
+            for item in self.history_data:
+                row = {
+                    "ID": item["id"],
+                    "项目名称": item["project_name"],
+                    "检测类型": item["type"],
+                    "得分": item["score"],
+                    "时间戳": item["timestamp"]
+                }
+                
+                # 添加详情
+                details = item.get("details")
+                if details:
+                    if item["type"] == "裂缝检测":
+                        row["裂缝路径"] = details[0]
+                        row["最大宽度(mm)"] = details[1]
+                        row["裂缝数量"] = details[2]
+                    elif item["type"] == "交通监测":
+                        row["总车流量"] = details[0]
+                        row["重车数量"] = details[1]
+                        row["小车数量"] = details[2]
+                        row["客车数量"] = details[3]
+                
+                export_list.append(row)
+            
+            # 创建进度对话框
+            self.progress_dialog = QProgressDialog("正在导出 Excel 数据...", "取消", 0, 100, self)
+            self.progress_dialog.setWindowTitle("导出中")
+            self.progress_dialog.setWindowModality(Qt.WindowModal)
+            self.progress_dialog.setMinimumDuration(0)
+            self.progress_dialog.setAutoClose(True)
+            
+            # 创建并启动导出线程
+            from threads.export_thread import ExcelExportThread
+            self.export_thread = ExcelExportThread(export_list, filename_prefix="Bridge_History")
+            self.export_thread.progress_signal.connect(self.progress_dialog.setValue)
+            self.export_thread.result_signal.connect(self._on_export_finished)
+            
+            # 连接取消按钮
+            self.progress_dialog.canceled.connect(self.export_thread.stop)
+            
+            self.export_thread.start()
+            self.progress_dialog.show()
+            
+        except Exception as e:
+            QMessageBox.critical(self, "错误", f"导出启动失败: {str(e)}")
+
+    def _on_export_finished(self, result):
+        """导出完成回调"""
+        if hasattr(self, 'progress_dialog'):
+            self.progress_dialog.close()
+            
+        if result.get("success"):
+            filepath = result.get("filepath")
+            QMessageBox.information(self, "导出成功", f"数据已成功导出至：\n{filepath}")
+        else:
+            QMessageBox.critical(self, "导出失败", f"导出 Excel 失败: {result.get('error')}")
+
     def _update_charts(self):
         """更新图表显示"""
         self._update_health_chart()
@@ -279,8 +471,11 @@ class HistoryPage(QWidget):
         dates.reverse()
         scores.reverse()
         
-        # 绘制折线图
-        self.health_ax.plot(dates, scores, color='#3498db', linewidth=2, marker='o', markersize=4)
+        if not dates:
+            self.health_ax.text(0.5, 0.5, "暂无数据", ha='center', va='center', color='#999')
+        else:
+            # 绘制折线图
+            self.health_ax.plot(dates, scores, color='#3498db', linewidth=2, marker='o', markersize=4)
         
         # 设置图表样式
         self.health_ax.spines['top'].set_visible(False)
@@ -289,17 +484,19 @@ class HistoryPage(QWidget):
         self.health_ax.spines['bottom'].set_color('#bdc3c7')
         
         # 设置坐标轴标签
-        self.health_ax.set_xlabel('时间', fontsize=12, color='#34495e')
-        self.health_ax.set_ylabel('健康评分', fontsize=12, color='#34495e')
+        self.health_ax.set_xlabel('时间', fontsize=10, color='#666')
+        self.health_ax.set_ylabel('健康评分', fontsize=10, color='#666')
         
         # 设置标题
-        self.health_ax.set_title('健康评分趋势图', fontsize=14, color='#2c3e50')
+        self.health_ax.set_title('健康评分趋势', fontsize=12, color='#333', pad=10)
         
         # 设置网格线
         self.health_ax.grid(True, linestyle='--', alpha=0.3, color='#bdc3c7')
         
         # 设置X轴标签旋转
-        plt.xticks(rotation=45, ha='right')
+        if dates:
+            self.health_ax.set_xticks(range(len(dates)))
+            self.health_ax.set_xticklabels(dates, rotation=45, ha='right', fontsize=8)
         
         # 调整布局
         self.health_figure.tight_layout()
@@ -334,8 +531,11 @@ class HistoryPage(QWidget):
         dates = sorted(truck_stats.keys())
         truck_counts = [truck_stats[date] for date in dates]
         
-        # 绘制柱状图
-        self.truck_ax.bar(dates, truck_counts, color='#e74c3c', alpha=0.8)
+        if not dates:
+             self.truck_ax.text(0.5, 0.5, "暂无数据", ha='center', va='center', color='#999')
+        else:
+            # 绘制柱状图
+            self.truck_ax.bar(dates, truck_counts, color='#e74c3c', alpha=0.8, width=0.5)
         
         # 设置图表样式
         self.truck_ax.spines['top'].set_visible(False)
@@ -344,17 +544,19 @@ class HistoryPage(QWidget):
         self.truck_ax.spines['bottom'].set_color('#bdc3c7')
         
         # 设置坐标轴标签
-        self.truck_ax.set_xlabel('日期', fontsize=12, color='#34495e')
-        self.truck_ax.set_ylabel('重车数量', fontsize=12, color='#34495e')
+        self.truck_ax.set_xlabel('日期', fontsize=10, color='#666')
+        self.truck_ax.set_ylabel('重车数量', fontsize=10, color='#666')
         
         # 设置标题
-        self.truck_ax.set_title('重车流量统计图', fontsize=14, color='#2c3e50')
+        self.truck_ax.set_title('重车流量统计', fontsize=12, color='#333', pad=10)
         
         # 设置网格线
         self.truck_ax.grid(True, linestyle='--', alpha=0.3, color='#bdc3c7', axis='y')
         
         # 设置X轴标签旋转
-        plt.xticks(rotation=45, ha='right')
+        if dates:
+            self.truck_ax.set_xticks(range(len(dates)))
+            self.truck_ax.set_xticklabels(dates, rotation=45, ha='right', fontsize=8)
         
         # 调整布局
         self.truck_figure.tight_layout()
@@ -364,13 +566,16 @@ class HistoryPage(QWidget):
     
     def _on_table_row_clicked(self, row, column):
         """表格行点击事件"""
+        # 注意：因为我们现在使用 setCellWidget 放置按钮，点击按钮可能不会触发此事件
+        # 除非点击其他单元格。如果需要整行点击都弹出详情，保持原样即可。
+        # 这里为了避免误触，可能希望只有点击按钮才弹出，或者保持现状。
+        # 暂时保持现状。
         self._on_view_details(row)
     
     def _on_view_details(self, row):
         """查看记录详情"""
         if 0 <= row < len(self.history_data):
             record = self.history_data[row]
-            record_id = record["id"]
             project_name = record["project_name"]
             record_type = record["type"]
             score = record["score"]
@@ -381,6 +586,7 @@ class HistoryPage(QWidget):
             dialog = QDialog(self)
             dialog.setWindowTitle("检测详情")
             dialog.setFixedSize(600, 500)
+            dialog.setStyleSheet("background-color: #ffffff;")
             
             # 创建对话框布局
             dialog_layout = QVBoxLayout(dialog)
@@ -388,6 +594,7 @@ class HistoryPage(QWidget):
             # 创建滚动区域
             scroll_area = QScrollArea()
             scroll_area.setWidgetResizable(True)
+            scroll_area.setStyleSheet("border: none;")
             
             # 创建滚动区域内容
             content_widget = QWidget()
@@ -395,6 +602,20 @@ class HistoryPage(QWidget):
             
             # 添加基本信息
             info_group = QGroupBox("基本信息")
+            info_group.setStyleSheet("""
+                QGroupBox {
+                    font-weight: bold;
+                    border: 1px solid #e0e0e0;
+                    border-radius: 6px;
+                    margin-top: 10px;
+                    padding-top: 10px;
+                }
+                QGroupBox::title {
+                    subcontrol-origin: margin;
+                    left: 10px;
+                    padding: 0 5px;
+                }
+            """)
             info_layout = QGridLayout(info_group)
             
             info_layout.addWidget(QLabel("项目名称:"), 0, 0)
@@ -407,7 +628,10 @@ class HistoryPage(QWidget):
             info_layout.addWidget(QLabel(timestamp), 2, 1)
             
             info_layout.addWidget(QLabel("健康评分:"), 3, 0)
-            info_layout.addWidget(QLabel(f"{score:.1f}"), 3, 1)
+            score_lbl = QLabel(f"{score:.1f}")
+            if score < 60: score_lbl.setStyleSheet("color: red; font-weight: bold;")
+            elif score > 90: score_lbl.setStyleSheet("color: green; font-weight: bold;")
+            info_layout.addWidget(score_lbl, 3, 1)
             
             content_layout.addWidget(info_group)
             
@@ -415,6 +639,7 @@ class HistoryPage(QWidget):
             if record_type == "裂缝检测" and details:
                 # 显示裂缝检测详情和图片
                 crack_group = QGroupBox("裂缝检测详情")
+                crack_group.setStyleSheet(info_group.styleSheet())
                 crack_layout = QVBoxLayout(crack_group)
                 
                 # 添加裂缝统计信息
@@ -439,6 +664,7 @@ class HistoryPage(QWidget):
                     image_widget = QLabel()
                     image_widget.setPixmap(pixmap.scaled(500, 300, Qt.KeepAspectRatio, Qt.SmoothTransformation))
                     image_widget.setAlignment(Qt.AlignCenter)
+                    image_widget.setStyleSheet("border: 1px solid #ccc; padding: 2px;")
                     crack_layout.addWidget(image_widget)
                 else:
                     crack_layout.addWidget(QLabel(f"图片文件不存在: {image_path}"))
@@ -448,6 +674,7 @@ class HistoryPage(QWidget):
             elif record_type == "交通监测" and details:
                 # 显示交通监测详情
                 traffic_group = QGroupBox("交通监测详情")
+                traffic_group.setStyleSheet(info_group.styleSheet())
                 traffic_layout = QGridLayout(traffic_group)
                 
                 traffic_layout.addWidget(QLabel("总车辆数:"), 0, 0)
@@ -477,14 +704,17 @@ if __name__ == "__main__":
     from PyQt5.QtWidgets import QApplication
     
     app = QApplication(sys.argv)
+    
+    # 简单的测试窗口
     window = QWidget()
     layout = QVBoxLayout(window)
+    layout.setContentsMargins(0,0,0,0)
     
     history_page = HistoryPage()
     layout.addWidget(history_page)
     
     window.setWindowTitle("历史记录页面测试")
-    window.resize(1000, 700)
+    window.resize(1000, 800)
     window.show()
     
     sys.exit(app.exec_())

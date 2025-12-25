@@ -8,12 +8,57 @@
 
 from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel,
-    QFileDialog, QProgressBar, QGroupBox, QTextEdit, QSplitter
+    QFileDialog, QProgressBar, QGroupBox, QTextEdit, QSplitter,
+    QInputDialog, QMessageBox, QProgressDialog
 )
-from PyQt5.QtGui import QPixmap, QImage
-from PyQt5.QtCore import Qt
+from PyQt5.QtGui import QPixmap, QImage, QPainter, QPen, QColor
+from PyQt5.QtCore import Qt, pyqtSignal, QPoint
 import cv2
+import math
+import os
 from utils.global_state import global_state
+from utils.logger import logger
+from utils.config_manager import ConfigManager
+
+
+class ClickableLabel(QLabel):
+    """可点击并支持绘图的标签"""
+    clicked = pyqtSignal(QPoint)
+    
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.points = []
+        self.is_calibration_mode = False
+        self.setMouseTracking(True)
+        
+    def mousePressEvent(self, event):
+        if self.is_calibration_mode and event.button() == Qt.LeftButton:
+            self.clicked.emit(event.pos())
+            if len(self.points) < 2:
+                self.points.append(event.pos())
+                self.update()
+            else:
+                self.points = [event.pos()]
+                self.update()
+        super().mousePressEvent(event)
+        
+    def paintEvent(self, event):
+        super().paintEvent(event)
+        if self.is_calibration_mode and self.points:
+            painter = QPainter(self)
+            painter.setPen(QPen(QColor(255, 0, 0), 2, Qt.SolidLine))
+            
+            # 画点
+            for pt in self.points:
+                painter.drawEllipse(pt, 3, 3)
+            
+            # 画线
+            if len(self.points) == 2:
+                painter.drawLine(self.points[0], self.points[1])
+    
+    def clear_calibration(self):
+        self.points = []
+        self.update()
 
 
 class DetectionPage(QWidget):
@@ -37,11 +82,17 @@ class DetectionPage(QWidget):
         """连接按钮信号与槽函数"""
         self.image_btn.clicked.connect(self._on_image_clicked)
         self.video_btn.clicked.connect(self._on_video_clicked)
+        self.batch_btn.clicked.connect(self._on_batch_clicked)
         self.camera_btn.clicked.connect(self._on_camera_clicked)
         self.clear_btn.clicked.connect(self._on_clear_clicked)
         self.start_btn.clicked.connect(self._on_start_clicked)
         self.pause_btn.clicked.connect(self._on_pause_clicked)
         self.stop_btn.clicked.connect(self._on_stop_clicked)
+        
+        # 标定相关信号
+        self.calib_btn.toggled.connect(self._on_calib_toggled)
+        self.calib_reset_btn.clicked.connect(self._on_calib_reset_clicked)
+        self.original_label.clicked.connect(self._on_label_clicked)
     
     def _init_ui(self):
         """初始化UI组件"""
@@ -61,16 +112,18 @@ class DetectionPage(QWidget):
         
         self.image_btn = QPushButton("选择图像")
         self.video_btn = QPushButton("选择视频")
+        self.batch_btn = QPushButton("批量处理")
         self.camera_btn = QPushButton("摄像头检测")
         self.clear_btn = QPushButton("清除")
         
         # 设置按钮对象名称
         self.image_btn.setObjectName("image_btn")
         self.video_btn.setObjectName("video_btn")
+        self.batch_btn.setObjectName("batch_btn")
         self.camera_btn.setObjectName("camera_btn")
         self.clear_btn.setObjectName("clear_btn")
         
-        for btn in [self.image_btn, self.video_btn, self.camera_btn, self.clear_btn]:
+        for btn in [self.image_btn, self.video_btn, self.batch_btn, self.camera_btn, self.clear_btn]:
             btn.setMinimumHeight(40)
             file_layout.addWidget(btn)
         
@@ -82,7 +135,21 @@ class DetectionPage(QWidget):
         # 原始图像显示区域
         original_group = QGroupBox("原始图像")
         original_layout = QVBoxLayout(original_group)
-        self.original_label = QLabel()
+        
+        # 增加标定模式开关和操作按钮
+        calibration_layout = QHBoxLayout()
+        self.calib_btn = QPushButton("开启标定模式")
+        self.calib_btn.setCheckable(True)
+        self.calib_btn.setObjectName("calib_btn")
+        self.calib_reset_btn = QPushButton("重置标定")
+        self.calib_reset_btn.setObjectName("calib_reset_btn")
+        self.calib_reset_btn.setEnabled(False)
+        
+        calibration_layout.addWidget(self.calib_btn)
+        calibration_layout.addWidget(self.calib_reset_btn)
+        original_layout.addLayout(calibration_layout)
+        
+        self.original_label = ClickableLabel()
         self.original_label.setAlignment(Qt.AlignCenter)
         self.original_label.setObjectName("image_display_label")
         self.original_label.setMinimumHeight(200)  # 降低最小高度，提高灵活性
@@ -140,6 +207,94 @@ class DetectionPage(QWidget):
         
         # 移除硬编码样式，使用全局样式表
     
+    def _on_calib_toggled(self, checked):
+        """标定模式开关切换事件"""
+        self.original_label.is_calibration_mode = checked
+        self.calib_reset_btn.setEnabled(checked)
+        if checked:
+            self.calib_btn.setText("退出标定模式")
+            self.update_info("进入标定模式：请在原图上点击两个点来定义参考长度")
+        else:
+            self.calib_btn.setText("开启标定模式")
+            self.original_label.clear_calibration()
+            self.update_info("已退出标定模式")
+
+    def _on_calib_reset_clicked(self):
+        """重置标定按钮点击事件"""
+        self.original_label.clear_calibration()
+        self.update_info("标定点已重置，请重新点击两个点")
+
+    def _on_label_clicked(self, pos):
+        """显示标签点击事件"""
+        if not self.original_label.is_calibration_mode:
+            return
+            
+        points = self.original_label.points
+        if len(points) == 2:
+            # 获取实际图像中的坐标
+            img_pt1 = self._map_to_image_coords(points[0])
+            img_pt2 = self._map_to_image_coords(points[1])
+            
+            if img_pt1 is None or img_pt2 is None:
+                self.show_error("错误", "点击位置不在图像范围内")
+                self.original_label.clear_calibration()
+                return
+                
+            # 计算像素距离
+            pixel_dist = math.sqrt((img_pt1[0] - img_pt2[0])**2 + (img_pt1[1] - img_pt2[1])**2)
+            
+            # 弹出对话框
+            mm_val, ok = QInputDialog.getDouble(self, "像素标定", "这条线代表实际多少毫米？", 10.0, 0.1, 10000.0, 2)
+            
+            if ok:
+                ratio = mm_val / pixel_dist
+                config = ConfigManager()
+                config.set("Detection", "pixel_ratio", ratio)
+                config.save_config()
+                
+                self.show_message("标定完成", f"像素比例已更新: {ratio:.4f} mm/pixel\n像素距离: {pixel_dist:.2f} px")
+                self.update_info(f"标定完成: {ratio:.4f} mm/pixel")
+                
+                # 退出标定模式
+                self.calib_btn.setChecked(False)
+            else:
+                self.original_label.clear_calibration()
+
+    def _map_to_image_coords(self, label_pos):
+        """将标签坐标映射到原始图像坐标"""
+        if self.original_image is None:
+            return None
+            
+        label = self.original_label
+        pixmap = label.pixmap()
+        if not pixmap:
+            return None
+            
+        # 标签尺寸
+        lw, lh = label.width(), label.height()
+        # 实际显示的图片尺寸 (scaled)
+        pw, ph = pixmap.width(), pixmap.height()
+        # 原始图片尺寸
+        ih, iw = self.original_image.shape[:2]
+        
+        # 图片在标签中的偏移 (AlignCenter)
+        ox = (lw - pw) / 2
+        oy = (lh - ph) / 2
+        
+        # 点击位置相对于图片左上角的坐标
+        rx = label_pos.x() - ox
+        ry = label_pos.y() - oy
+        
+        # 检查是否在图片范围内
+        if rx < 0 or rx > pw or ry < 0 or ry > ph:
+            return None
+            
+        # 映射回原始坐标
+        img_x = int(rx * iw / pw)
+        img_y = int(ry * ih / ph)
+        
+        return (img_x, img_y)
+
     def display_image(self, image, is_original=True):
         """显示图像
         
@@ -176,7 +331,7 @@ class DetectionPage(QWidget):
             label.setPixmap(scaled_pixmap)
             
         except Exception as e:
-            print(f"显示图像失败: {e}")
+            logger.error(f"显示图像失败: {e}")
     
     def update_progress(self, progress):
         """更新进度条
@@ -277,21 +432,80 @@ class DetectionPage(QWidget):
         # 打开文件选择对话框
         file_path = self.get_file_path("video")
         if file_path:
-            try:
-                # 保存当前状态
-                self.current_file_path = file_path
-                self.detection_mode = "video"
+            self.current_file_path = file_path
+            self.detection_mode = "video"
+            
+            # 清除之前的图像显示
+            self.original_label.clear()
+            self.result_label.clear()
+            
+            # 更新信息
+            self.update_info(f"已选择视频文件: {file_path}")
+
+    def _on_batch_clicked(self):
+        """批量处理按钮点击事件"""
+        try:
+            # 选择目录
+            dir_path = QFileDialog.getExistingDirectory(self, "选择包含图像的目录", "")
+            if not dir_path:
+                return
+            
+            # 获取所有图片文件
+            valid_exts = ('.jpg', '.jpeg', '.png', '.bmp', '.tif')
+            image_paths = [
+                os.path.join(dir_path, f) for f in os.listdir(dir_path) 
+                if f.lower().endswith(valid_exts)
+            ]
+            
+            if not image_paths:
+                self.show_error("错误", "所选目录中没有有效的图像文件")
+                return
+            
+            # 确认批量处理
+            reply = QMessageBox.question(
+                self, "确认批量处理", 
+                f"发现 {len(image_paths)} 张图片，是否开始批量检测？\n这可能需要一些时间。",
+                QMessageBox.Yes | QMessageBox.No, QMessageBox.Yes
+            )
+            
+            if reply == QMessageBox.No:
+                return
                 
-                # 清除之前的图像显示
-                self.original_label.clear()
-                self.result_label.clear()
-                
-                # 更新信息
-                self.update_info(f"已选择视频文件: {file_path}")
-                
-            except Exception as e:
-                self.show_error("错误", f"选择视频失败: {str(e)}")
-    
+            # 创建进度对话框
+            self.batch_progress_dialog = QProgressDialog("正在进行批量检测...", "取消", 0, 100, self)
+            self.batch_progress_dialog.setWindowTitle("请稍候")
+            self.batch_progress_dialog.setWindowModality(Qt.WindowModal)
+            self.batch_progress_dialog.setMinimumDuration(0)
+            self.batch_progress_dialog.setAutoClose(True)
+            
+            # 创建并启动批量检测线程
+            from threads.video_detection_thread import BatchDetectionThread
+            self.batch_thread = BatchDetectionThread(image_paths)
+            self.batch_thread.progress_signal.connect(self.batch_progress_dialog.setValue)
+            self.batch_thread.result_signal.connect(self._on_batch_finished)
+            
+            # 连接取消按钮
+            self.batch_progress_dialog.canceled.connect(self.batch_thread.stop)
+            
+            self.batch_thread.start()
+            self.batch_progress_dialog.show()
+            
+        except Exception as e:
+            self.show_error("错误", f"批量处理启动失败: {str(e)}")
+
+    def _on_batch_finished(self, result):
+        """批量处理完成事件"""
+        if hasattr(self, 'batch_progress_dialog'):
+            self.batch_progress_dialog.close()
+            
+        if result.get("success"):
+            total = result.get("total", 0)
+            processed = result.get("processed", 0)
+            self.show_message("批量处理完成", f"共处理 {total} 张图片，成功 {processed} 张。\n结果已保存至数据库和输出目录。")
+            self.update_info(f"批量处理完成: {processed}/{total}")
+        else:
+            self.show_error("错误", f"批量处理失败: {result.get('error')}")
+
     def _on_camera_clicked(self):
         """摄像头检测按钮点击事件"""
         try:
@@ -348,6 +562,8 @@ class DetectionPage(QWidget):
             
             # 根据检测模式创建相应的线程
             from threads.video_detection_thread import ImageDetectionThread, VideoDetectionThread
+            from utils.config_manager import ConfigManager
+            config = ConfigManager()
             
             if self.detection_mode == "image":
                 # 图像检测
@@ -370,7 +586,8 @@ class DetectionPage(QWidget):
                 
             elif self.detection_mode == "camera":
                 # 摄像头检测
-                self.detection_thread = VideoDetectionThread(0)  # 0表示默认摄像头
+                camera_id = config.get("Camera", "camera_id")
+                self.detection_thread = VideoDetectionThread(camera_id)  # 使用配置的摄像头ID
                 self.detection_thread.frame_processed_signal.connect(self._on_video_frame_processed)
                 self.detection_thread.result_signal.connect(self._on_video_detection_finished)
             
@@ -408,21 +625,26 @@ class DetectionPage(QWidget):
             current_time = datetime.now().strftime('%H:%M:%S')
             stats = detection_result.get("stats", {})
             total_cracks = stats.get("total_cracks", 0)
+            max_width_mm = stats.get("max_width_mm", 0)
             
-            # 优化日志格式：[时间] 检测完成 | 发现目标: 0 | 状态: 正常
-            self.update_info(f"[{current_time}] 检测完成 | 发现目标: {total_cracks} | 状态: 正常")
+            # 优化日志格式：[时间] 检测完成 | 发现目标: 0 | 最大宽度: 0.00 mm | 状态: 正常
+            self.update_info(f"[{current_time}] 检测完成 | 发现目标: {total_cracks} | 最大宽度: {max_width_mm:.2f} mm | 状态: 正常")
             
             # 更新全局状态
             from utils.global_state import global_state
-            max_width = stats.get("max_width", 0)
-            global_state.update_crack_data(total_cracks, max_width)
+            global_state.update_crack_data(total_cracks, max_width_mm)
             
             # 保存检测结果图片
             import os
             from datetime import datetime
+            from utils.config_manager import ConfigManager
             
             # 创建outputs目录（如果不存在）
-            output_dir = "outputs"
+            config = ConfigManager()
+            output_dir = config.get("System", "save_dir")
+            if not output_dir:
+                output_dir = "outputs"
+                
             os.makedirs(output_dir, exist_ok=True)
             
             # 生成时间戳文件名
@@ -441,7 +663,7 @@ class DetectionPage(QWidget):
                     project_id=global_state.get_current_project_id() or 1,  # 默认使用项目ID 1
                     score=detection_result.get("score", 0),
                     image_path=image_path,
-                    width=max_width,
+                    width=max_width_mm,
                     count=total_cracks
                 )
                 
@@ -477,12 +699,13 @@ class DetectionPage(QWidget):
             current_time = datetime.now().strftime('%H:%M:%S')
             stats = result.get("stats", {})
             total_cracks = stats.get("total_cracks", 0)
+            max_width_mm = stats.get("max_width_mm", 0)
             
-            # 优化日志格式：[时间] 检测完成 | 发现目标: 0 | 状态: 正常
-            self.update_info(f"[{current_time}] 检测完成 | 发现目标: {total_cracks} | 状态: 正常")
+            # 优化日志格式：[时间] 检测完成 | 发现目标: 0 | 最大宽度: 0.00 mm | 状态: 正常
+            self.update_info(f"[{current_time}] 检测完成 | 发现目标: {total_cracks} | 最大宽度: {max_width_mm:.2f} mm | 状态: 正常")
             
         except Exception as e:
-            print(f"处理视频帧失败: {e}")
+            logger.error(f"处理视频帧失败: {e}")
     
     def _on_video_detection_finished(self, result):
         """视频检测完成信号处理"""

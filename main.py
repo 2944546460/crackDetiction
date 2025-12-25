@@ -19,8 +19,11 @@ from PyQt5.QtCore import Qt
 
 def main():
     """主函数"""
+    # 修复 libiomp5md.dll 冲突
+    os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
+    
     try:
-        # 设置Qt平台插件环境变量（解决Qt平台插件加载问题）
+        # 设置Qt平台插件环境变量
         if hasattr(sys, 'frozen'):
             os.environ['QT_QPA_PLATFORM_PLUGIN_PATH'] = os.path.join(os.path.dirname(sys.executable), 'PyQt5', 'Qt', 'plugins', 'platforms')
         else:
@@ -30,34 +33,74 @@ def main():
                 if os.path.exists(qt_plugins_path):
                     os.environ['QT_QPA_PLATFORM_PLUGIN_PATH'] = qt_plugins_path
             except Exception as e:
-                print(f"无法设置Qt平台插件路径: {e}")
+                from utils.logger import logger
+                logger.warning(f"无法设置Qt平台插件路径: {e}")
         
         # 创建应用程序实例
         app = QApplication(sys.argv)
+        app.setStyle("Fusion")
         
-        # 设置应用程序样式
-        app.setStyle("Fusion")  # 使用Fusion样式，提供更现代的界面
-        
-        # 导入并应用全局样式表
+        # 导入样式和组件
         from utils.styles import GLOBAL_STYLE
+        from views.splash_screen import SplashScreen
+        from views.login_dialog import LoginDialog
+        from threads.loading_thread import LoadingThread
+        from utils.logger import logger
+        
         app.setStyleSheet(GLOBAL_STYLE)
         
-        # 创建主控制器实例
-        controller = MainController()
+        # 1. 显示启动页
+        splash = SplashScreen()
+        splash.show()
         
-        # 初始化控制器
-        controller.initialize()
+        # 定义加载完成后的回调
+        controller = None
         
-        # 显示主窗口
-        controller.show_main_window()
+        def on_load_finished(models):
+            nonlocal controller
+            try:
+                # 2. 关闭启动页
+                splash.close()
+                
+                # 3. 显示登录对话框
+                login = LoginDialog()
+                if login.exec_() == LoginDialog.Accepted:
+                    # 4. 登录成功，创建并初始化主控制器 (使用加载好的模型)
+                    controller = MainController()
+                    controller.initialize(models)
+                    
+                    # 5. 显示主窗口
+                    controller.show_main_window()
+                    logger.info("系统启动完成")
+                else:
+                    # 登录取消或失败，退出程序
+                    logger.info("用户取消登录，程序退出")
+                    sys.exit(0)
+            except Exception as e:
+                logger.exception("界面初始化失败")
+                from PyQt5.QtWidgets import QMessageBox
+                QMessageBox.critical(None, "启动错误", f"界面初始化失败: {str(e)}")
+                sys.exit(1)
+
+        def on_load_error(error_msg):
+            logger.error(f"加载失败: {error_msg}")
+            from PyQt5.QtWidgets import QMessageBox
+            QMessageBox.critical(None, "启动错误", error_msg)
+            sys.exit(1)
+        
+        # 4. 启动加载线程
+        loader = LoadingThread()
+        loader.loading_status_signal.connect(splash.update_progress)
+        loader.result_signal.connect(on_load_finished)
+        loader.error_signal.connect(on_load_error)
+        loader.start()
         
         # 运行应用程序
         return app.exec_()
         
     except Exception as e:
-        print(f"应用程序启动失败: {e}")
-        import traceback
-        traceback.print_exc()
+        from utils.logger import logger
+        logger.exception(f"应用程序启动失败: {e}")
         return 1
 
 

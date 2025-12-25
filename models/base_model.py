@@ -10,6 +10,7 @@ import os
 import cv2
 import numpy as np
 from abc import ABC, abstractmethod
+from utils.logger import logger
 
 
 class BaseModel(ABC):
@@ -104,7 +105,7 @@ class ImageProcessingModel(BaseModel):
             
             return cv2.imwrite(output_path, image)
         except Exception as e:
-            print(f"保存图像失败: {e}")
+            logger.error(f"保存图像失败: {e}")
             return False
 
 
@@ -120,18 +121,21 @@ class VideoProcessingModel(BaseModel):
         self._width = 0
         self._height = 0
     
-    @abstractmethod
-    def process_frame(self, frame):
-        """处理单帧视频
+    def initialize(self):
+        """实现抽象方法 initialize"""
+        self._set_initialized(True)
         
-        Args:
-            frame: 输入帧（numpy数组，BGR格式）
-            
-        Returns:
-            processed_frame: 处理后的帧（numpy数组，BGR格式）
-            result: 处理结果数据
-        """
-        pass
+    def process(self, data):
+        """实现抽象方法 process"""
+        return self.process_frame(data)
+
+    def release(self):
+        """实现抽象方法 release"""
+        self.close_video()
+
+    def process_frame(self, frame):
+        """默认实现，子类可覆盖"""
+        return frame, {}
     
     def open_video(self, video_path):
         """打开视频文件
@@ -158,7 +162,7 @@ class VideoProcessingModel(BaseModel):
             
             return True
         except Exception as e:
-            print(f"打开视频失败: {e}")
+            logger.error(f"打开视频失败: {e}")
             self._cap = None
             return False
     
@@ -198,7 +202,7 @@ class VideoProcessingModel(BaseModel):
                 return None
             return frame
         except Exception as e:
-            print(f"获取指定位置帧失败: {e}")
+            logger.error(f"获取指定位置帧失败: {e}")
             return None
     
     def close_video(self):

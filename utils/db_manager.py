@@ -94,6 +94,20 @@ class DBManager:
         # 提交事务
         self.connection.commit()
     
+    def get_all_projects(self):
+        """
+        获取所有项目列表
+        
+        Returns:
+            list: 包含所有项目字典的列表
+        """
+        sql = "SELECT id, name, type, created_at FROM projects ORDER BY created_at DESC"
+        rows = self.fetch_all(sql)
+        return [
+            {"id": row[0], "name": row[1], "type": row[2], "created_at": row[3]}
+            for row in rows
+        ]
+    
     def close(self):
         """关闭数据库连接"""
         if self.connection:
@@ -209,13 +223,16 @@ class DBManager:
             int: 检测记录ID
         """
         try:
+            # 生成本地时间戳
+            current_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            
             # 开始事务
             self.connection.execute('BEGIN TRANSACTION')
             
             # 插入检测记录主表
             self.cursor.execute(
-                "INSERT INTO inspection_records (project_id, type, score) VALUES (?, ?, ?)",
-                (project_id, "交通监测", score)
+                "INSERT INTO inspection_records (project_id, type, score, timestamp) VALUES (?, ?, ?, ?)",
+                (project_id, "交通监测", score, current_time)
             )
             record_id = self.lastrowid()
             
@@ -296,12 +313,13 @@ class DBManager:
 
 # 测试代码
 if __name__ == "__main__":
+    from utils.logger import logger
     with DBManager() as db:
-        print(f"数据库已连接：{db.db_path}")
+        logger.info(f"数据库已连接：{db.db_path}")
         
         # 测试使用封装的方法创建一个项目
         project_id = db.add_project("测试桥梁项目", "混凝土桥梁")
-        print(f"创建的项目ID：{project_id}")
+        logger.info(f"创建的项目ID：{project_id}")
         
         # 测试使用封装的方法创建裂缝检测记录（事务处理）
         crack_record_id = db.add_crack_record(
@@ -311,7 +329,7 @@ if __name__ == "__main__":
             width=0.5,
             count=10
         )
-        print(f"创建的裂缝检测记录ID：{crack_record_id}")
+        logger.info(f"创建的裂缝检测记录ID：{crack_record_id}")
         
         # 测试使用封装的方法创建交通检测记录（事务处理）
         traffic_record_id = db.add_traffic_record(
@@ -322,40 +340,40 @@ if __name__ == "__main__":
             car=70,
             bus=10
         )
-        print(f"创建的交通检测记录ID：{traffic_record_id}")
+        logger.info(f"创建的交通检测记录ID：{traffic_record_id}")
         
         # 测试查询所有项目
-        print("\n查询所有项目：")
+        logger.info("\n查询所有项目：")
         projects = db.fetch_all("SELECT * FROM projects")
         for project in projects:
-            print(project)
+            logger.info(project)
         
         # 测试查询所有检测记录
-        print("\n查询所有检测记录：")
+        logger.info("\n查询所有检测记录：")
         records = db.fetch_all("SELECT * FROM inspection_records")
         for record in records:
-            print(record)
+            logger.info(record)
         
         # 测试查询所有裂缝详情
-        print("\n查询所有裂缝详情：")
+        logger.info("\n查询所有裂缝详情：")
         crack_details = db.fetch_all("SELECT * FROM crack_details")
         for detail in crack_details:
-            print(detail)
+            logger.info(detail)
         
         # 测试查询所有交通统计
-        print("\n查询所有交通统计：")
+        logger.info("\n查询所有交通统计：")
         traffic_stats = db.fetch_all("SELECT * FROM traffic_stats")
         for stats in traffic_stats:
-            print(stats)
+            logger.info(stats)
         
         # 测试获取历史记录
-        print("\n获取最近的检测记录：")
+        logger.info("\n获取最近的检测记录：")
         history = db.get_history(limit=20)
         for i, record in enumerate(history, 1):
-            print(f"\n记录 #{i}:")
-            print(f"  ID: {record['id']}")
-            print(f"  项目名称: {record['project_name']}")
-            print(f"  检测类型: {record['type']}")
-            print(f"  得分: {record['score']}")
-            print(f"  时间戳: {record['timestamp']}")
-            print(f"  详情: {record['details']}")
+            logger.info(f"\n记录 #{i}:")
+            logger.info(f"  ID: {record['id']}")
+            logger.info(f"  项目名称: {record['project_name']}")
+            logger.info(f"  检测类型: {record['type']}")
+            logger.info(f"  得分: {record['score']}")
+            logger.info(f"  时间戳: {record['timestamp']}")
+            logger.info(f"  详情: {record['details']}")

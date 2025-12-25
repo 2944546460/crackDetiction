@@ -12,23 +12,30 @@ from models.base_model import ImageProcessingModel
 from ultralytics import YOLO
 import os
 from PIL import Image, ImageDraw, ImageFont
+from utils.config_manager import ConfigManager
+from utils.logger import logger
 
 
 class YoloModel(ImageProcessingModel):
     """YOLO裂缝检测工具类
     
     单例或工具类，用于封装Ultralytics YOLO模型，实现裂缝检测功能
-    默认使用训练好的best.pt模型，也支持加载其他YOLO模型
+    默认使用配置文件中的模型，也支持加载其他YOLO模型
     """
     
     def __init__(self, model_path=None):
         """初始化YOLO检测模型
         
         Args:
-            model_path: YOLO模型文件路径，如果为None则默认使用当前目录下的best.pt模型
-                       可以通过传入模型路径使用自定义模型
+            model_path: YOLO模型文件路径，如果为None则默认使用配置文件中的模型
         """
         super().__init__()
+        self.config_manager = ConfigManager()
+        
+        # 如果未提供路径，从配置读取
+        if model_path is None:
+            model_path = self.config_manager.get("Detection", "model_path")
+            
         self._model_path = model_path
         self._model = None
         self._class_names = ["crack"]  # 裂缝检测的类别名称
@@ -40,21 +47,21 @@ class YoloModel(ImageProcessingModel):
                 # 如果没有提供模型路径，优先使用当前目录下的best.pt模型
                 if os.path.exists("best_seg.pt"):
                     self._model = YOLO("best_seg.pt")
-                    print("使用默认的训练模型: best_seg.pt")
+                    logger.info("使用默认的训练模型: best_seg.pt")
                 else:
                     # 如果best.pt不存在，使用yolov11n.pt
                     self._model = YOLO("yolov11n.pt")
-                    print("使用默认的YOLOv11n模型")
+                    logger.info("使用默认的YOLOv11n模型")
             else:
                 if not os.path.exists(self._model_path):
                     raise FileNotFoundError(f"YOLO模型文件不存在: {self._model_path}")
                 self._model = YOLO(self._model_path)
-                print(f"加载YOLO模型: {self._model_path}")
+                logger.info(f"加载YOLO模型: {self._model_path}")
             
             self._set_initialized(True)
-            print("YOLO检测模型初始化完成")
+            logger.info("YOLO检测模型初始化完成")
         except Exception as e:
-            print(f"YOLO检测模型初始化失败: {e}")
+            logger.error(f"YOLO检测模型初始化失败: {e}")
             self._set_initialized(False)
     
     def process(self, data):
@@ -103,30 +110,52 @@ class YoloModel(ImageProcessingModel):
 
         # 下面统计数据的逻辑可以保留，用来生成报告
         detected_cracks = []
+        pixel_ratio = self.config_manager.get("Detection", "pixel_ratio") or 1.0
+        
         for result in results:
             boxes = result.boxes
+            masks = result.masks
+            
             if len(boxes) > 0:
-                for box in boxes:
-                    # 获取基本信息用于统计（不用于画图了）
+                for i, box in enumerate(boxes):
+                    # 获取基本信息用于统计
                     x1, y1, x2, y2 = box.xyxy[0].tolist()
                     confidence = box.conf[0].item()
-                    class_id = int(box.cls[0].item())
+                    
+                    # 计算像素宽度
+                    # 如果有掩码，使用掩码计算更精确的宽度
+                    if masks is not None and i < len(masks):
+                        mask_pixels = np.sum(masks.data[i].cpu().numpy() > 0)
+                        # 粗略估计：宽度 = 面积 / 长度 (使用对角线作为长度近似)
+                        length_px = ((x2 - x1) ** 2 + (y2 - y1) ** 2) ** 0.5
+                        width_px = mask_pixels / length_px if length_px > 0 else 0
+                    else:
+                        # 如果没有掩码，使用最小边作为宽度
+                        width_px = min(x2 - x1, y2 - y1)
+                    
+                    # 转换为毫米
+                    width_mm = width_px * pixel_ratio
                     
                     # 存储裂缝信息
                     crack_info = {
                         "bounding_box": [int(x1), int(y1), int(x2), int(y2)],
                         "confidence": confidence,
-                        "area": (x2 - x1) * (y2 - y1),
+                        "width_px": width_px,
+                        "width_mm": width_mm,
+                        "area_px": (x2 - x1) * (y2 - y1),
                         "center": [(x1 + x2) / 2, (y1 + y2) / 2]
                     }
                     detected_cracks.append(crack_info)
+                    
         # 计算裂缝统计信息
+        max_width_mm = max([crack["width_mm"] for crack in detected_cracks]) if detected_cracks else 0
         crack_stats = {
             "total_cracks": len(detected_cracks),
             "average_confidence": np.mean([crack["confidence"] for crack in detected_cracks]) if detected_cracks else 0,
-            "total_crack_area": sum([crack["area"] for crack in detected_cracks]),
-            "image_area": original_image.shape[0] * original_image.shape[1],
-            "crack_coverage": sum([crack["area"] for crack in detected_cracks]) / (original_image.shape[0] * original_image.shape[1]) if detected_cracks else 0
+            "max_width_mm": max_width_mm,
+            "total_crack_area_px": sum([crack["area_px"] for crack in detected_cracks]),
+            "image_area_px": original_image.shape[0] * original_image.shape[1],
+            "crack_coverage": sum([crack["area_px"] for crack in detected_cracks]) / (original_image.shape[0] * original_image.shape[1]) if detected_cracks else 0
         }
         
         result = {
@@ -136,17 +165,45 @@ class YoloModel(ImageProcessingModel):
         
         return processed_image, result
     
-    def process_video_frame(self, frame):
-        """处理视频帧，进行裂缝检测
+    def process_video_frame(self, frame, persist=True):
+        """处理视频帧，进行目标追踪
         
         Args:
             frame: 输入视频帧（numpy数组，BGR格式）
+            persist: 是否持久化追踪 (ByteTrack)
             
         Returns:
-            processed_frame: 处理后的视频帧（numpy数组，BGR格式）
-            result: 检测结果数据
+            processed_frame: 处理后的视频帧
+            result: 检测结果（包含追踪 ID）
         """
-        return self.process_image(frame)
+        if not self.is_initialized:
+            self.initialize()
+            
+        # 使用 track 模式启用目标追踪
+        # persist=True 表示在帧之间保持追踪 ID
+        results = self._model.track(frame, persist=persist, conf=0.3, iou=0.5)
+        
+        # 绘图
+        processed_frame = results[0].plot(conf=True, boxes=True, img=frame)
+        
+        # 提取追踪信息
+        detected_objects = []
+        if results[0].boxes.id is not None:
+            boxes = results[0].boxes.xyxy.cpu().numpy()
+            ids = results[0].boxes.id.cpu().numpy().astype(int)
+            confs = results[0].boxes.conf.cpu().numpy()
+            classes = results[0].boxes.cls.cpu().numpy().astype(int)
+            
+            for box, obj_id, conf, cls in zip(boxes, ids, confs, classes):
+                detected_objects.append({
+                    "id": int(obj_id),
+                    "bbox": box.tolist(),
+                    "conf": float(conf),
+                    "class": int(cls),
+                    "center": [(box[0] + box[2]) / 2, (box[1] + box[3]) / 2]
+                })
+                
+        return processed_frame, {"detected_objects": detected_objects, "results": results[0]}
     
     def detect_image(self, image_path):
         """检测单张图像中的裂缝
@@ -165,7 +222,7 @@ class YoloModel(ImageProcessingModel):
         """释放资源"""
         self._model = None
         self._set_initialized(False)
-        print("YOLO检测模型资源已释放")
+        logger.info("YOLO检测模型资源已释放")
     
     def set_class_names(self, class_names):
         """设置类别名称
@@ -211,11 +268,11 @@ class YoloModel(ImageProcessingModel):
                 try:
                     return ImageFont.truetype(font_path, font_size)
                 except Exception as e:
-                    print(f"加载字体{font_path}失败: {e}")
+                    logger.warning(f"加载字体{font_path}失败: {e}")
                     continue
         
         # 如果没有找到任何中文字体，返回默认字体
-        print("未找到Windows系统中文字体，使用默认字体")
+        logger.warning("未找到Windows系统中文字体，使用默认字体")
         return ImageFont.load_default()
     
     def _draw_chinese_text(self, image, text, position, font_size=12, color=(0, 0, 255)):
@@ -263,7 +320,7 @@ class CrackAnalysisModel(ImageProcessingModel):
     def initialize(self):
         """初始化模型"""
         self._set_initialized(True)
-        print("裂缝分析模型初始化完成")
+        logger.info("裂缝分析模型初始化完成")
     
     def process(self, data):
         """处理数据的核心方法
@@ -318,25 +375,20 @@ class CrackAnalysisModel(ImageProcessingModel):
                 "details": {}
             }
         
-        # 计算裂缝的平均长度（假设边界框的对角线长度为裂缝长度）
-        crack_lengths = []
-        for crack in detected_cracks:
-            x1, y1, x2, y2 = crack["bounding_box"]
-            length = ((x2 - x1) ** 2 + (y2 - y1) ** 2) ** 0.5
-            crack_lengths.append(length)
-        
-        average_length = np.mean(crack_lengths)
-        max_length = np.max(crack_lengths)
+        # 使用检测结果中已经计算好的毫米宽度
+        crack_widths_mm = [crack["width_mm"] for crack in detected_cracks]
+        average_width_mm = np.mean(crack_widths_mm)
+        max_width_mm = np.max(crack_widths_mm)
         
         # 计算裂缝密度
-        crack_density = len(detected_cracks) / detection_result["stats"]["image_area"]
+        crack_density = len(detected_cracks) / detection_result["stats"]["image_area_px"]
         
-        # 根据裂缝特征评估严重程度
-        if max_length < 50 and crack_density < 0.0001:
+        # 根据裂缝特征评估严重程度 (通常以毫米为单位更有意义)
+        if max_width_mm < 0.2 and crack_density < 0.0001:
             crack_level = "轻微裂缝"
             severity = "低"
             recommendation = "定期观察"
-        elif max_length < 100 and crack_density < 0.0005:
+        elif max_width_mm < 1.0 and crack_density < 0.0005:
             crack_level = "中等裂缝"
             severity = "中"
             recommendation = "需要修复"
@@ -351,8 +403,8 @@ class CrackAnalysisModel(ImageProcessingModel):
             "recommendation": recommendation,
             "details": {
                 "total_cracks": len(detected_cracks),
-                "average_length": average_length,
-                "max_length": max_length,
+                "average_width_mm": average_width_mm,
+                "max_width_mm": max_width_mm,
                 "crack_density": crack_density,
                 "crack_coverage": detection_result["stats"]["crack_coverage"]
             }
@@ -363,4 +415,4 @@ class CrackAnalysisModel(ImageProcessingModel):
     def release(self):
         """释放资源"""
         self._set_initialized(False)
-        print("裂缝分析模型资源已释放")
+        logger.info("裂缝分析模型资源已释放")

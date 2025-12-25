@@ -185,24 +185,25 @@ QSplitter::handle:hover {
     background-color: #bdc3c7;
 }
 
-/* 优化 QMessageBox 样式 */
+/* 弹窗样式 */
 QMessageBox {
-    background-color: white;
-    border: 1px solid #ccc;
+    background-color: #ffffff;
 }
+
 QMessageBox QLabel {
-    color: #333;
-    font-size: 14px;
+    color: #333333;
 }
-/* 强制所有 QMessageBox 里的按钮都用蓝色 */
+
 QMessageBox QPushButton {
-    background-color: #3498db;
-    color: white;
+    color: #000000; /* 确保文字是黑色 */
+    background-color: #f0f0f0;
+    border: 1px solid #dcdcdc;
     border-radius: 4px;
     padding: 6px 15px;
-    min-width: 60px;
+    min-width: 80px;
 }
+
 QMessageBox QPushButton:hover {
-    background-color: #2980b9;
+    background-color: #e0e0e0;
 }
 """

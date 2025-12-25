@@ -153,7 +153,8 @@ class HistoryPage(QWidget):
         # 列宽自适应
         header = self.table_widget.horizontalHeader()
         header.setSectionResizeMode(QHeaderView.Stretch) # 自动铺满
-        header.setSectionResizeMode(4, QHeaderView.ResizeToContents) # 最后一列适应内容
+        header.setSectionResizeMode(4, QHeaderView.Fixed) # 最后一列固定宽度
+        self.table_widget.setColumnWidth(4, 200) # 给操作按钮留足空间，防止遮挡
         
         # 连接表格点击事件
         self.table_widget.cellClicked.connect(self._on_table_row_clicked)
@@ -349,29 +350,54 @@ class HistoryPage(QWidget):
             self.table_widget.setItem(i, 3, score_item)
             
             # 添加操作按钮
-            view_btn = QPushButton("查看")
+            view_btn = QPushButton("查看详情")
             view_btn.setCursor(Qt.PointingHandCursor)
+            view_btn.setFixedWidth(85)  # 稍微加宽一点，确保文字不拥挤
+            view_btn.setFixedHeight(30)  # 稍微加高一点，垂直居中更明显
             view_btn.setStyleSheet("""
                 QPushButton {
-                    color: #3498db;
-                    border: 1px solid #3498db;
-                    border-radius: 4px;
-                    padding: 2px 8px;
-                    background-color: white;
-                }
-                QPushButton:hover {
+                    color: #ffffff;
                     background-color: #3498db;
-                    color: white;
+                    border: none;
+                    border-radius: 4px;
+                    padding: 0;
+                    font-size: 13px;
+                    font-weight: bold;
                 }
+                QPushButton:hover { background-color: #2980b9; }
             """)
             view_btn.clicked.connect(lambda checked, idx=i: self._on_view_details(idx))
             
-            # 创建一个Widget来居中按钮
+            delete_btn = QPushButton("删除")
+            delete_btn.setCursor(Qt.PointingHandCursor)
+            delete_btn.setFixedWidth(85)  # 统一固定宽度
+            delete_btn.setFixedHeight(30)  # 统一固定高度
+            delete_btn.setStyleSheet("""
+                QPushButton {
+                    color: #ffffff;
+                    background-color: #e74c3c;
+                    border: none;
+                    border-radius: 4px;
+                    padding: 0;
+                    font-size: 13px;
+                    font-weight: bold;
+                }
+                QPushButton:hover { background-color: #c0392b; }
+            """)
+            delete_btn.clicked.connect(lambda checked, rid=record_id: self._on_delete_record(rid))
+            
+            # 创建一个Widget来排列按钮
             btn_widget = QWidget()
             btn_layout = QHBoxLayout(btn_widget)
-            btn_layout.setContentsMargins(5, 2, 5, 2)
+            btn_layout.setContentsMargins(5, 0, 15, 0) # 左侧留5px，右侧留15px防止遮挡
+            btn_layout.setSpacing(10) # 按钮间距
+            btn_layout.setAlignment(Qt.AlignCenter) # 确保水平和垂直都居中
             btn_layout.addWidget(view_btn)
+            btn_layout.addWidget(delete_btn)
             self.table_widget.setCellWidget(i, 4, btn_widget)
+            
+            # 适当增加行高
+            self.table_widget.setRowHeight(i, 48)
         
         # 不再需要手动 resizeColumnsToContents，因为使用了 Stretch 模式
         # self.table_widget.resizeColumnsToContents()
@@ -444,6 +470,27 @@ class HistoryPage(QWidget):
         else:
             QMessageBox.critical(self, "导出失败", f"导出 Excel 失败: {result.get('error')}")
 
+    def _on_delete_record(self, record_id):
+        """删除记录处理"""
+        reply = QMessageBox.question(
+            self, '确认删除', '确定要删除这条检测记录吗？此操作不可撤销。',
+            QMessageBox.Yes | QMessageBox.No, QMessageBox.No
+        )
+        
+        if reply == QMessageBox.Yes:
+            try:
+                from utils.db_manager import DBManager
+                db = DBManager()
+                if db.delete_record(record_id):
+                    # 重新加载数据
+                    self._load_data()
+                    QMessageBox.information(self, "成功", "记录已成功删除")
+                else:
+                    QMessageBox.error(self, "失败", "删除记录失败，请检查数据库状态")
+            except Exception as e:
+                logger.error(f"删除记录异常: {e}")
+                QMessageBox.critical(self, "错误", f"删除过程中发生异常: {str(e)}")
+
     def _update_charts(self):
         """更新图表显示"""
         self._update_health_chart()
@@ -459,7 +506,6 @@ class HistoryPage(QWidget):
         scores = []
         
         for record in self.history_data:
-            record_type = record["type"]
             score = record["score"]
             timestamp = record["timestamp"]
             # 提取日期部分
@@ -474,8 +520,21 @@ class HistoryPage(QWidget):
         if not dates:
             self.health_ax.text(0.5, 0.5, "暂无数据", ha='center', va='center', color='#999')
         else:
+            # 绘制阈值背景带
+            self.health_ax.axhspan(90, 100, color='green', alpha=0.1, label='优秀')
+            self.health_ax.axhspan(60, 90, color='yellow', alpha=0.1, label='良好')
+            self.health_ax.axhspan(0, 60, color='red', alpha=0.1, label='警戒')
+            
+            # 增加基准线（警戒线）
+            self.health_ax.axhline(y=60, color='red', linestyle='--', linewidth=1.5, alpha=0.8)
+            self.health_ax.text(len(dates)-0.5 if len(dates)>0 else 0, 62, "警戒线", color='red', fontsize=9, fontweight='bold')
+
             # 绘制折线图
-            self.health_ax.plot(dates, scores, color='#3498db', linewidth=2, marker='o', markersize=4)
+            self.health_ax.plot(dates, scores, color='#3498db', linewidth=2.5, marker='o', 
+                               markersize=6, markerfacecolor='white', markeredgewidth=2, label='健康分')
+        
+        # 设置坐标轴范围
+        self.health_ax.set_ylim(0, 105)
         
         # 设置图表样式
         self.health_ax.spines['top'].set_visible(False)
@@ -484,19 +543,19 @@ class HistoryPage(QWidget):
         self.health_ax.spines['bottom'].set_color('#bdc3c7')
         
         # 设置坐标轴标签
-        self.health_ax.set_xlabel('时间', fontsize=10, color='#666')
-        self.health_ax.set_ylabel('健康评分', fontsize=10, color='#666')
+        self.health_ax.set_xlabel('检测日期', fontsize=10, color='#666')
+        self.health_ax.set_ylabel('评分 (0-100)', fontsize=10, color='#666')
         
         # 设置标题
-        self.health_ax.set_title('健康评分趋势', fontsize=12, color='#333', pad=10)
+        self.health_ax.set_title('桥梁健康状态趋势', fontsize=12, color='#333', pad=15, fontweight='bold')
         
         # 设置网格线
-        self.health_ax.grid(True, linestyle='--', alpha=0.3, color='#bdc3c7')
+        self.health_ax.grid(True, linestyle=':', alpha=0.4, color='#bdc3c7')
         
         # 设置X轴标签旋转
         if dates:
             self.health_ax.set_xticks(range(len(dates)))
-            self.health_ax.set_xticklabels(dates, rotation=45, ha='right', fontsize=8)
+            self.health_ax.set_xticklabels(dates, rotation=35, ha='right', fontsize=9)
         
         # 调整布局
         self.health_figure.tight_layout()
@@ -505,12 +564,12 @@ class HistoryPage(QWidget):
         self.health_canvas.draw()
     
     def _update_truck_chart(self):
-        """更新重车流量统计图"""
+        """更新交通流量统计图 (升级为多折线图)"""
         # 清空图表
         self.truck_ax.clear()
         
-        # 按日期统计重车数量
-        truck_stats = {}
+        # 按日期统计各类车辆数量
+        daily_stats = {}
         
         for record in self.history_data:
             record_type = record["type"]
@@ -520,22 +579,41 @@ class HistoryPage(QWidget):
             if record_type == "交通监测" and details:
                 # 提取日期部分
                 date_str = timestamp.split(' ')[0]
-                truck_count = details[1]  # 重车数量
+                # 解析详情 [total, truck, car, bus]
+                # 数据库存储结构为: total, truck, car, bus
+                truck_count = details[1]
+                car_count = details[2]
+                bus_count = details[3]
                 
-                if date_str in truck_stats:
-                    truck_stats[date_str] += truck_count
-                else:
-                    truck_stats[date_str] = truck_count
+                if date_str not in daily_stats:
+                    daily_stats[date_str] = {'truck': 0, 'car': 0, 'bus': 0}
+                
+                daily_stats[date_str]['truck'] += truck_count
+                daily_stats[date_str]['car'] += car_count
+                daily_stats[date_str]['bus'] += bus_count
         
         # 准备数据
-        dates = sorted(truck_stats.keys())
-        truck_counts = [truck_stats[date] for date in dates]
+        dates = sorted(daily_stats.keys())
+        truck_counts = [daily_stats[d]['truck'] for d in dates]
+        car_counts = [daily_stats[d]['car'] for d in dates]
+        bus_counts = [daily_stats[d]['bus'] for d in dates]
         
         if not dates:
              self.truck_ax.text(0.5, 0.5, "暂无数据", ha='center', va='center', color='#999')
         else:
-            # 绘制柱状图
-            self.truck_ax.bar(dates, truck_counts, color='#e74c3c', alpha=0.8, width=0.5)
+            # 绘制多折线图
+            # 轿车: 蓝色
+            self.truck_ax.plot(dates, car_counts, color='#3498db', linewidth=2, marker='s', 
+                              markersize=4, label='轿车 (Car)')
+            # 重车: 红色 (加粗，重点关注)
+            self.truck_ax.plot(dates, truck_counts, color='#e74c3c', linewidth=3, marker='D', 
+                              markersize=5, label='重车 (Truck)')
+            # 巴士: 绿色
+            self.truck_ax.plot(dates, bus_counts, color='#2ecc71', linewidth=2, marker='^', 
+                              markersize=4, label='巴士 (Bus)')
+            
+            # 添加图例
+            self.truck_ax.legend(loc='upper right', fontsize=8, frameon=True, facecolor='white', framealpha=0.8)
         
         # 设置图表样式
         self.truck_ax.spines['top'].set_visible(False)
@@ -545,18 +623,18 @@ class HistoryPage(QWidget):
         
         # 设置坐标轴标签
         self.truck_ax.set_xlabel('日期', fontsize=10, color='#666')
-        self.truck_ax.set_ylabel('重车数量', fontsize=10, color='#666')
+        self.truck_ax.set_ylabel('通过数量 (辆)', fontsize=10, color='#666')
         
         # 设置标题
-        self.truck_ax.set_title('重车流量统计', fontsize=12, color='#333', pad=10)
+        self.truck_ax.set_title('交通流量多维度统计', fontsize=12, color='#333', pad=15, fontweight='bold')
         
         # 设置网格线
-        self.truck_ax.grid(True, linestyle='--', alpha=0.3, color='#bdc3c7', axis='y')
+        self.truck_ax.grid(True, linestyle=':', alpha=0.4, color='#bdc3c7')
         
         # 设置X轴标签旋转
         if dates:
             self.truck_ax.set_xticks(range(len(dates)))
-            self.truck_ax.set_xticklabels(dates, rotation=45, ha='right', fontsize=8)
+            self.truck_ax.set_xticklabels(dates, rotation=35, ha='right', fontsize=9)
         
         # 调整布局
         self.truck_figure.tight_layout()

@@ -310,6 +310,29 @@ class DBManager:
         
         return history
 
+    def delete_record(self, record_id):
+        """
+        删除指定的检测记录及其关联的详细数据
+        
+        Args:
+            record_id (int): 检测记录的 ID
+            
+        Returns:
+            bool: 是否删除成功
+        """
+        try:
+            # 由于创建表时设置了 ON DELETE CASCADE，
+            # 只需删除主记录，关联的 crack_details 或 traffic_stats 会自动删除
+            query = "DELETE FROM inspection_records WHERE id = ?"
+            self.cursor.execute(query, (record_id,))
+            self.connection.commit()
+            return True
+        except Exception as e:
+            self.connection.rollback()
+            from utils.logger import logger
+            logger.error(f"删除记录失败 (ID: {record_id}): {e}")
+            return False
+
 
 # 测试代码
 if __name__ == "__main__":

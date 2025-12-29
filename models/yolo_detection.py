@@ -76,39 +76,8 @@ class YoloModel(ImageProcessingModel):
         """
         return self.process_image(data)
     
-    def process_image(self, image):
-        """处理单张图像，进行裂缝检测
-        
-        Args:
-            image: 输入图像，可以是numpy数组（BGR格式）或图像文件路径
-            
-        Returns:
-            processed_image: 处理后的图像（numpy数组，BGR格式），绘制了检测框
-            result: 检测结果数据，包括检测到的裂缝信息
-        """
-        if not self.is_initialized:
-            self.initialize()
-            if not self.is_initialized:
-                raise RuntimeError("YOLO检测模型未初始化")
-        
-       # 读取图像
-        original_image = self.read_image(image)
-        # processed_image = original_image.copy()  <-- 这行可以删掉，plot() 会返回新图
-        
-        # 进行检测
-        results = self._model(original_image)
-        
-        # --- 核心修改开始 ---
-        
-        # 方案：直接使用 YOLO 自带的绘图功能
-        # 这会自动绘制 框(Boxes) + 掩膜(Masks) + 标签(Labels)
-        # img=original_image 参数确保在原图上绘制
-        # conf=True 显示置信度
-        # boxes=True 显示检测框
-        processed_image = results[0].plot(conf=True, boxes=True, img=original_image)
-        # --- 核心修改结束 ---
-
-        # 下面统计数据的逻辑可以保留，用来生成报告
+    def _analyze_crack_results(self, results, image_shape):
+        """分析检测结果，提取裂缝信息和评分"""
         detected_cracks = []
         pixel_ratio = self.config_manager.get("Detection", "pixel_ratio") or 1.0
         
@@ -123,14 +92,11 @@ class YoloModel(ImageProcessingModel):
                     confidence = box.conf[0].item()
                     
                     # 计算像素宽度
-                    # 如果有掩码，使用掩码计算更精确的宽度
                     if masks is not None and i < len(masks):
                         mask_pixels = np.sum(masks.data[i].cpu().numpy() > 0)
-                        # 粗略估计：宽度 = 面积 / 长度 (使用对角线作为长度近似)
                         length_px = ((x2 - x1) ** 2 + (y2 - y1) ** 2) ** 0.5
                         width_px = mask_pixels / length_px if length_px > 0 else 0
                     else:
-                        # 如果没有掩码，使用最小边作为宽度
                         width_px = min(x2 - x1, y2 - y1)
                     
                     # 转换为毫米
@@ -154,14 +120,69 @@ class YoloModel(ImageProcessingModel):
             "average_confidence": np.mean([crack["confidence"] for crack in detected_cracks]) if detected_cracks else 0,
             "max_width_mm": max_width_mm,
             "total_crack_area_px": sum([crack["area_px"] for crack in detected_cracks]),
-            "image_area_px": original_image.shape[0] * original_image.shape[1],
-            "crack_coverage": sum([crack["area_px"] for crack in detected_cracks]) / (original_image.shape[0] * original_image.shape[1]) if detected_cracks else 0
+            "image_area_px": image_shape[0] * image_shape[1],
+            "crack_coverage": sum([crack["area_px"] for crack in detected_cracks]) / (image_shape[0] * image_shape[1]) if detected_cracks else 0
         }
         
-        result = {
+        # 计算健康分
+        score = 100.0
+        width_deduction = 0
+        count_deduction = 0
+        
+        if max_width_mm > 0:
+            if max_width_mm < 0.1:
+                width_deduction = 0
+            elif max_width_mm <= 0.2:
+                width_deduction = 5 + (max_width_mm - 0.1) * 50
+            elif max_width_mm <= 0.5:
+                width_deduction = 10 + (max_width_mm - 0.2) * 66.7
+            else:
+                width_deduction = 30 + min(40, (max_width_mm - 0.5) * 80)
+            score -= width_deduction
+
+        crack_count = len(detected_cracks)
+        if crack_count > 0:
+            count_deduction = min(30, crack_count * 2)
+            score -= count_deduction
+        
+        score = round(max(0.0, min(100.0, score)), 1)
+        
+        logger.debug(f"裂缝检测评分计算完成: 原始分数=100, 宽度扣分={width_deduction:.1f}, 数量扣分={count_deduction:.1f}, 最终分数={score}")
+        
+        return {
             "detected_cracks": detected_cracks,
-            "stats": crack_stats
+            "stats": crack_stats,
+            "score": score
         }
+
+    def process_image(self, image):
+        """处理单张图像，进行裂缝检测
+        
+        Args:
+            image: 输入图像，可以是numpy数组（BGR格式）或图像文件路径
+            
+        Returns:
+            processed_image: 处理后的图像（numpy数组，BGR格式），绘制了检测框
+            result: 检测结果数据，包括检测到的裂缝信息
+        """
+        if not self.is_initialized:
+            self.initialize()
+            if not self.is_initialized:
+                raise RuntimeError("YOLO检测模型未初始化")
+        
+       # 读取图像
+        original_image = self.read_image(image)
+        # processed_image = original_image.copy()  <-- 这行可以删掉，plot() 会返回新图
+        
+        # 进行检测
+        results = self._model(original_image)
+        
+        # --- 核心修改开始 ---
+        processed_image = results[0].plot(conf=True, boxes=True, img=original_image)
+        # --- 核心修改结束 ---
+
+        # 使用 helper 方法分析结果
+        result = self._analyze_crack_results(results, original_image.shape)
         
         return processed_image, result
     
@@ -174,19 +195,21 @@ class YoloModel(ImageProcessingModel):
             
         Returns:
             processed_frame: 处理后的视频帧
-            result: 检测结果（包含追踪 ID）
+            result: 检测结果（包含追踪 ID 和裂缝分析）
         """
         if not self.is_initialized:
             self.initialize()
             
         # 使用 track 模式启用目标追踪
-        # persist=True 表示在帧之间保持追踪 ID
         results = self._model.track(frame, persist=persist, conf=0.3, iou=0.5)
         
         # 绘图
         processed_frame = results[0].plot(conf=True, boxes=True, img=frame)
         
-        # 提取追踪信息
+        # 使用 helper 方法分析裂缝
+        crack_result = self._analyze_crack_results(results, frame.shape)
+        
+        # 提取追踪信息 (针对交通监测)
         detected_objects = []
         if results[0].boxes.id is not None:
             boxes = results[0].boxes.xyxy.cpu().numpy()
@@ -202,8 +225,12 @@ class YoloModel(ImageProcessingModel):
                     "class": int(cls),
                     "center": [(box[0] + box[2]) / 2, (box[1] + box[3]) / 2]
                 })
-                
-        return processed_frame, {"detected_objects": detected_objects, "results": results[0]}
+        
+        # 合并结果
+        crack_result["detected_objects"] = detected_objects
+        crack_result["results"] = results[0]
+        
+        return processed_frame, crack_result
     
     def detect_image(self, image_path):
         """检测单张图像中的裂缝

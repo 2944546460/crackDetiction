@@ -12,7 +12,7 @@ from PyQt5.QtWidgets import (
     QButtonGroup, QLineEdit, QFileDialog, QMessageBox, QSizePolicy
 )
 from PyQt5.QtGui import QFont, QPixmap, QImage
-from PyQt5.QtCore import Qt
+from PyQt5.QtCore import Qt, pyqtSignal
 import sys
 import os
 import random
@@ -29,6 +29,7 @@ from matplotlib import rcParams
 
 class TrafficPage(QWidget):
     """交通荷载页面类"""
+    detection_finished_signal = pyqtSignal() # 监测完成信号
     
     def __init__(self):
         """初始化交通荷载页面"""
@@ -231,6 +232,7 @@ class TrafficPage(QWidget):
         self.figure.patch.set_alpha(0) # 透明背景
         
         self.canvas = FigureCanvas(self.figure)
+        self.canvas.setMinimumSize(300, 200)
         self.canvas.setStyleSheet("background-color: transparent;")
         chart_layout.addWidget(self.canvas)
         
@@ -370,11 +372,11 @@ class TrafficPage(QWidget):
             black_pixmap.fill(Qt.black)
             self.video_label.setPixmap(black_pixmap)
             
-            # 2. 重置数据和图表
-            self._reset_data()
-            
-            # 3. 保存数据到数据库
+            # 2. 先保存数据到数据库 (在重置之前)
             self._save_traffic_data()
+            
+            # 3. 重置数据和图表
+            self._reset_data()
 
     def _on_source_type_changed(self, button):
         """信号源类型切换事件"""
@@ -446,7 +448,10 @@ class TrafficPage(QWidget):
         
         # 3. 更新全局状态 (用于报告页)
         from utils.global_state import global_state
+        # 将计算出的分数存入状态
+        traffic_score = result.get("score", 100)
         global_state.update_traffic_stats(total_flow, truck_count, car_count, bus_count)
+        global_state.last_traffic_score = traffic_score # 临时存储分数用于保存
         
         # 4. 更新界面卡片
         # 将车辆数卡片显示为：当前: X / 累计: Y
@@ -497,23 +502,32 @@ class TrafficPage(QWidget):
         
         self.yolo_thread = None
         self._add_log("[INFO] 视频处理完成。")
+        
+        # 视频自然结束时也保存数据并触发更新
+        self._save_traffic_data()
 
     def _save_traffic_data(self):
         """保存数据到数据库"""
         from utils.global_state import global_state
         vehicle_stats = global_state.get_traffic_stats()
+        # 获取最新的健康分
+        current_score = getattr(global_state, 'last_traffic_score', 95.0)
+        
         try:
             from utils.db_manager import DBManager
             db = DBManager()
             db.add_traffic_record(
                 project_id=global_state.get_current_project_id() or 1,
-                score=0, 
+                score=current_score,
                 total=vehicle_stats["total"],
                 truck=vehicle_stats["truck"],
                 car=vehicle_stats["car"],
                 bus=vehicle_stats["bus"]
             )
             self._add_log(f"[DB] 数据已保存: {vehicle_stats}")
+            
+            # 发射信号通知其他页面刷新
+            self.detection_finished_signal.emit()
         except Exception as e:
             self._add_log(f"[ERROR] 数据库写入失败: {e}")
 

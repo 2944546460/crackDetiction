@@ -62,7 +62,8 @@ class ClickableLabel(QLabel):
 
 
 class DetectionPage(QWidget):
-    """裂缝检测页面"""
+    """裂缝检测页面类"""
+    detection_finished_signal = pyqtSignal() # 检测完成信号，用于通知其他页面更新
     
     def __init__(self):
         """初始化裂缝检测页面"""
@@ -503,6 +504,9 @@ class DetectionPage(QWidget):
             processed = result.get("processed", 0)
             self.show_message("批量处理完成", f"共处理 {total} 张图片，成功 {processed} 张。\n结果已保存至数据库和输出目录。")
             self.update_info(f"批量处理完成: {processed}/{total}")
+            
+            # 发射完成信号
+            self.detection_finished_signal.emit()
         else:
             self.show_error("错误", f"批量处理失败: {result.get('error')}")
 
@@ -674,6 +678,9 @@ class DetectionPage(QWidget):
                     main_window.statusBar.showMessage(f"检测结果已归档 | 裂缝数: {total_cracks}", 3000)
                 # --- 修改结束 ---
                 
+                # 发射完成信号，通知其他页面（首页、历史记录）刷新
+                self.detection_finished_signal.emit()
+                
             except Exception as e:
                 # 注意：如果这里的 e 是关于 statusBar 的错误，说明数据库其实已经保存成功了
                 self.show_error("错误", f"保存检测结果到数据库失败: {str(e)}")
@@ -681,8 +688,8 @@ class DetectionPage(QWidget):
             # 重置检测状态
             self.is_detecting = False
             
-            # 重置检测状态
-            self.is_detecting = False
+            # 发射完成信号
+            self.detection_finished_signal.emit()
             
         except Exception as e:
             self.show_error("错误", f"处理检测结果失败: {str(e)}")
@@ -700,9 +707,15 @@ class DetectionPage(QWidget):
             stats = result.get("stats", {})
             total_cracks = stats.get("total_cracks", 0)
             max_width_mm = stats.get("max_width_mm", 0)
+            score = result.get("score", 100.0)
             
-            # 优化日志格式：[时间] 检测完成 | 发现目标: 0 | 最大宽度: 0.00 mm | 状态: 正常
-            self.update_info(f"[{current_time}] 检测完成 | 发现目标: {total_cracks} | 最大宽度: {max_width_mm:.2f} mm | 状态: 正常")
+            # 优化日志格式：[时间] 检测完成 | 发现目标: 0 | 最大宽度: 0.00 mm | 健康分: 100.0 | 状态: 正常
+            self.update_info(f"[{current_time}] 检测完成 | 发现目标: {total_cracks} | 最大宽度: {max_width_mm:.2f} mm | 健康分: {score:.1f} | 状态: 正常")
+            
+            # --- 修复：视频/摄像头模式下实时更新全局状态，以便首页同步显示 ---
+            from utils.global_state import global_state
+            global_state.update_crack_data(total_cracks, max_width_mm)
+            # --- 修复结束 ---
             
         except Exception as e:
             logger.error(f"处理视频帧失败: {e}")
@@ -712,6 +725,40 @@ class DetectionPage(QWidget):
         try:
             self.update_info("视频检测完成")
             
+            # 如果是裂缝检测模式，保存汇总结果到数据库
+            if self.detection_mode in ["video", "camera"]:
+                crack_stats = result.get("crack_stats", {})
+                score = crack_stats.get("score", 100.0)
+                max_width = crack_stats.get("max_width", 0.0)
+                max_count = crack_stats.get("max_count", 0)
+                
+                # 只有当检测到裂缝或用户确实运行了检测时才保存
+                # 这里我们假设只要运行完成就保存一条汇总记录
+                try:
+                    from utils.db_manager import DBManager
+                    from utils.global_state import global_state
+                    db = DBManager()
+                    
+                    # 视频检测没有单张图片路径，存入视频路径或空
+                    video_path = result.get("video_path", "Camera Stream")
+                    
+                    db.add_crack_record(
+                        project_id=global_state.get_current_project_id() or 1,
+                        score=score,
+                        image_path=video_path,
+                        width=max_width,
+                        count=max_count
+                    )
+                    
+                    # 修复：视频检测结束时更新全局状态
+                    global_state.update_crack_data(max_count, max_width)
+                    
+                    self.update_info(f"视频检测结果已归档 | 平均得分: {score:.1f} | 最大宽度: {max_width:.2f}mm")
+                    self.detection_finished_signal.emit()
+                    
+                except Exception as e:
+                    logger.error(f"保存视频检测结果到数据库失败: {e}")
+
             # 重置检测状态
             self.is_detecting = False
             

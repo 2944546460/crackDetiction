@@ -182,6 +182,34 @@ class MainWindow(QMainWindow):
         self.report_btn.clicked.connect(lambda: self.stacked_widget.setCurrentIndex(3))
         self.history_btn.clicked.connect(lambda: self.stacked_widget.setCurrentIndex(4))
         self.settings_btn.clicked.connect(lambda: self.stacked_widget.setCurrentIndex(5))
+
+        # --- 新增：连接首页卡片的跳转信号 ---
+        self.home_page.switch_tab_signal.connect(self._handle_tab_switch)
+
+        # --- 新增：连接检测完成信号，用于自动刷新其他页面 ---
+        self.detection_page.detection_finished_signal.connect(self._on_detection_finished)
+        self.traffic_page.detection_finished_signal.connect(self._on_detection_finished)
+
+    def _on_detection_finished(self):
+        """当检测完成时，通知相关页面进行数据更新"""
+        logger.info("接收到检测完成信号，开始更新相关页面数据...")
+        
+        # 1. 更新首页的检测数据和监测图
+        if hasattr(self.home_page, 'update_dashboard_data'):
+            self.home_page.update_dashboard_data()
+            
+        # 2. 刷新历史记录页面的表格和图表
+        if hasattr(self.history_page, '_load_data'):
+            self.history_page._load_data()
+            
+    def _handle_tab_switch(self, index):
+        """处理页面跳转信号"""
+        if 0 <= index < self.stacked_widget.count():
+            # 切换页面
+            self.stacked_widget.setCurrentIndex(index)
+            # 同时更新左侧导航栏的选中状态
+            if index < len(self.nav_btns):
+                self.nav_btns[index].setChecked(True)
     
     def initialize(self):
         """初始化主窗口"""

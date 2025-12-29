@@ -161,9 +161,10 @@ class DBManager:
         Returns:
             int: 项目ID
         """
+        current_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         self.cursor.execute(
-            "INSERT INTO projects (name, type) VALUES (?, ?)",
-            (name, type)
+            "INSERT INTO projects (name, type, created_at) VALUES (?, ?, ?)",
+            (name, type, current_time)
         )
         self.connection.commit()
         return self.lastrowid()
@@ -183,13 +184,16 @@ class DBManager:
             int: 检测记录ID
         """
         try:
+            # 生成本地时间戳，解决 UTC 时间偏差问题
+            current_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            
             # 开始事务
             self.connection.execute('BEGIN TRANSACTION')
             
             # 插入检测记录主表
             self.cursor.execute(
-                "INSERT INTO inspection_records (project_id, type, score) VALUES (?, ?, ?)",
-                (project_id, "裂缝检测", score)
+                "INSERT INTO inspection_records (project_id, type, score, timestamp) VALUES (?, ?, ?, ?)",
+                (project_id, "裂缝检测", score, current_time)
             )
             record_id = self.lastrowid()
             
@@ -250,33 +254,54 @@ class DBManager:
             self.connection.rollback()
             raise e
     
-    def get_history(self, limit=20):
+    def get_history(self, limit=20, offset=0, record_type=None, start_date=None, end_date=None):
         """
-        获取最近的检测记录
+        获取检测历史记录，支持筛选和分页
         
         Args:
-            limit (int): 返回记录的最大数量，默认20条
+            limit (int): 返回记录的最大数量
+            offset (int): 跳过的记录数量
+            record_type (str): 筛选记录类型 (如 "裂缝检测", "交通监测")
+            start_date (str): 筛选开始时间 (YYYY-MM-DD)
+            end_date (str): 筛选结束时间 (YYYY-MM-DD)
             
         Returns:
-            list: 检测记录列表，每条记录包含项目名称、检测类型、得分、时间戳等信息
+            list: 检测记录列表
         """
-        # 查询最近的检测记录，连接项目表获取项目名称
-        query = '''
+        params = []
+        where_clauses = []
+        
+        if record_type and record_type != "全部":
+            where_clauses.append("i.type = ?")
+            params.append(record_type)
+            
+        if start_date:
+            where_clauses.append("i.timestamp >= ?")
+            params.append(f"{start_date} 00:00:00")
+            
+        if end_date:
+            where_clauses.append("i.timestamp <= ?")
+            params.append(f"{end_date} 23:59:59")
+            
+        where_str = " WHERE " + " AND ".join(where_clauses) if where_clauses else ""
+        
+        query = f'''
         SELECT 
             i.id, p.name as project_name, i.type, i.score, i.timestamp
         FROM 
             inspection_records i
         JOIN 
             projects p ON i.project_id = p.id
+        {where_str}
         ORDER BY 
             i.timestamp DESC
-        LIMIT ?
+        LIMIT ? OFFSET ?
         '''
+        params.extend([limit, offset])
         
-        self.cursor.execute(query, (limit,))
+        self.cursor.execute(query, tuple(params))
         records = self.cursor.fetchall()
         
-        # 构建结果列表，每条记录包含更丰富的信息
         history = []
         for record in records:
             record_id, project_name, type, score, timestamp = record
@@ -296,7 +321,6 @@ class DBManager:
                 )
                 details = self.cursor.fetchone()
             
-            # 构建记录字典
             history_item = {
                 "id": record_id,
                 "project_name": project_name,
@@ -305,10 +329,33 @@ class DBManager:
                 "timestamp": timestamp,
                 "details": details
             }
-            
             history.append(history_item)
         
         return history
+
+    def get_history_count(self, record_type=None, start_date=None, end_date=None):
+        """获取符合条件的记录总数"""
+        params = []
+        where_clauses = []
+        
+        if record_type and record_type != "全部":
+            where_clauses.append("type = ?")
+            params.append(record_type)
+            
+        if start_date:
+            where_clauses.append("timestamp >= ?")
+            params.append(f"{start_date} 00:00:00")
+            
+        if end_date:
+            where_clauses.append("timestamp <= ?")
+            params.append(f"{end_date} 23:59:59")
+            
+        where_str = " WHERE " + " AND ".join(where_clauses) if where_clauses else ""
+        query = f"SELECT COUNT(*) FROM inspection_records {where_str}"
+        
+        self.cursor.execute(query, tuple(params))
+        result = self.cursor.fetchone()
+        return result[0] if result else 0
 
     def delete_record(self, record_id):
         """
@@ -331,6 +378,93 @@ class DBManager:
             self.connection.rollback()
             from utils.logger import logger
             logger.error(f"删除记录失败 (ID: {record_id}): {e}")
+            return False
+
+    def get_today_detection_count(self):
+        """
+        获取今天的检测总次数
+        
+        Returns:
+            int: 今天的检测次数
+        """
+        try:
+            today_date = datetime.now().strftime('%Y-%m-%d')
+            # 搜索 timestamp 以今天日期开头的记录
+            query = "SELECT COUNT(*) FROM inspection_records WHERE timestamp LIKE ?"
+            self.cursor.execute(query, (f"{today_date}%",))
+            result = self.cursor.fetchone()
+            return result[0] if result else 0
+        except Exception as e:
+            from utils.logger import logger
+            logger.error(f"查询今日检测次数失败: {e}")
+            return 0
+
+    def update_crack_details(self, record_id, width, count, score=None):
+        """
+        更新裂缝检测详情
+        
+        Args:
+            record_id (int): 检测记录 ID
+            width (float): 新的裂缝宽度
+            count (int): 新的裂缝数量
+            score (float, optional): 新的健康分
+            
+        Returns:
+            bool: 是否更新成功
+        """
+        try:
+            self.connection.execute('BEGIN TRANSACTION')
+            
+            # 更新裂缝详情
+            query1 = "UPDATE crack_details SET max_width = ?, count = ? WHERE record_id = ?"
+            self.cursor.execute(query1, (width, count, record_id))
+            
+            # 如果提供了分数，更新主记录
+            if score is not None:
+                query2 = "UPDATE inspection_records SET score = ? WHERE id = ?"
+                self.cursor.execute(query2, (score, record_id))
+                
+            self.connection.commit()
+            return True
+        except Exception as e:
+            self.connection.rollback()
+            from utils.logger import logger
+            logger.error(f"更新裂缝详情失败 (RecordID: {record_id}): {e}")
+            return False
+
+    def update_traffic_stats(self, record_id, total, truck, car, bus, score=None):
+        """
+        更新交通监测统计数据
+        
+        Args:
+            record_id (int): 检测记录 ID
+            total (int): 总车辆数
+            truck (int): 重车数
+            car (int): 小车数
+            bus (int): 公交车数
+            score (float, optional): 新的健康分
+            
+        Returns:
+            bool: 是否更新成功
+        """
+        try:
+            self.connection.execute('BEGIN TRANSACTION')
+            
+            # 更新交通详情
+            query1 = "UPDATE traffic_stats SET total_vehicles = ?, truck_count = ?, car_count = ?, bus_count = ? WHERE record_id = ?"
+            self.cursor.execute(query1, (total, truck, car, bus, record_id))
+            
+            # 如果提供了分数，更新主记录
+            if score is not None:
+                query2 = "UPDATE inspection_records SET score = ? WHERE id = ?"
+                self.cursor.execute(query2, (score, record_id))
+                
+            self.connection.commit()
+            return True
+        except Exception as e:
+            self.connection.rollback()
+            from utils.logger import logger
+            logger.error(f"更新交通统计失败 (RecordID: {record_id}): {e}")
             return False
 
 

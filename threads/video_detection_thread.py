@@ -35,6 +35,12 @@ class VideoDetectionThread(BaseThread):
         self._total_frames = 0
         self._counted_ids = set()  # 已计数的车辆 ID 集合
         self._total_vehicle_count = 0  # 累计流量
+        self._total_car_count = 0      # 累计轿车
+        self._total_truck_count = 0    # 累计卡车
+        self._total_bus_count = 0      # 累计公交
+        self._worst_crack_score = 100.0  # 记录视频中检测到的最差裂缝分数
+        self._max_crack_width = 0.0      # 记录视频中检测到的最大裂缝宽度
+        self._max_crack_count = 0        # 记录视频中单帧最大裂缝数量
         self._crossing_line_y = None  # 越界线 Y 坐标 (画面中间)
         self._id_history = {}  # 记录 ID 的历史位置和时间: {id: (time, x, y)}
         self._current_speeds = {}  # 记录当前各 ID 的速度
@@ -100,9 +106,6 @@ class VideoDetectionThread(BaseThread):
                 
                 # 流量统计逻辑
                 detected_objects = result.get("detected_objects", [])
-                current_car_count = 0
-                current_truck_count = 0
-                current_bus_count = 0
                 
                 now = time.time()
                 active_ids = set()
@@ -113,14 +116,6 @@ class VideoDetectionThread(BaseThread):
                     obj_cls = obj.get("class", -1)
                     center_x, center_y = obj["center"]
                     active_ids.add(obj_id)
-                    
-                    # 统计当前帧各车型数量
-                    if obj_cls == 2: # car
-                        current_car_count += 1
-                    elif obj_cls == 7: # truck
-                        current_truck_count += 1
-                    elif obj_cls == 5: # bus
-                        current_bus_count += 1
                     
                     # 计算速度逻辑
                     if obj_id in self._id_history:
@@ -149,7 +144,17 @@ class VideoDetectionThread(BaseThread):
                         # 如果车辆中心点超过了越界线（向下行驶）
                         if center_y > self._crossing_line_y:
                             self._counted_ids.add(obj_id)
-                            self._total_vehicle_count += 1
+                            
+                            # 只有是我们要统计的车型时，才增加总数和分类数
+                            if obj_cls == 2: # car
+                                self._total_vehicle_count += 1
+                                self._total_car_count += 1
+                            elif obj_cls == 7: # truck
+                                self._total_vehicle_count += 1
+                                self._total_truck_count += 1
+                            elif obj_cls == 5: # bus
+                                self._total_vehicle_count += 1
+                                self._total_bus_count += 1
                 
                 # 清理过期 ID
                 expired_ids = [tid for tid in self._id_history if tid not in active_ids]
@@ -163,30 +168,78 @@ class VideoDetectionThread(BaseThread):
                 if self._current_speeds:
                     avg_speed = sum(self._current_speeds.values()) / len(self._current_speeds)
                 
+                # --- 核心修改：如果是裂缝检测模式，记录最差结果 ---
+                if "detected_cracks" in result or "stats" in result:
+                    crack_stats = result.get("stats", {})
+                    frame_score = result.get("score", 100.0)
+                    frame_width = crack_stats.get("max_width_mm", 0.0)
+                    frame_count = crack_stats.get("total_cracks", 0)
+                    
+                    if frame_score < self._worst_crack_score:
+                        self._worst_crack_score = frame_score
+                    if frame_width > self._max_crack_width:
+                        self._max_crack_width = frame_width
+                    if frame_count > self._max_crack_count:
+                        self._max_crack_count = frame_count
+                
+                # --- 计算交通健康分 (100分制) ---
+                # 评分标准参考:
+                # 1. 重车比例扣分 (权重 70%): 
+                #    - 重车比例 < 10%: 扣 0-5 分
+                #    - 重车比例 10%-30%: 扣 5-25 分
+                #    - 重车比例 > 30%: 扣 25-60 分
+                # 2. 车流量负荷扣分 (权重 30%):
+                #    - 基于当前流量和预设阈值的负荷程度
+                
+                traffic_score = 100.0
+                if self._total_vehicle_count > 0:
+                    # A. 重车比例扣分
+                    truck_ratio = self._total_truck_count / self._total_vehicle_count
+                    if truck_ratio < 0.1:
+                        truck_deduction = truck_ratio * 50 # 0.1->5
+                    elif truck_ratio <= 0.3:
+                        truck_deduction = 5 + (truck_ratio - 0.1) * 100 # 0.3->25
+                    else:
+                        truck_deduction = 25 + min(35, (truck_ratio - 0.3) * 116.7) # 0.6->60
+                    
+                    # B. 流量负荷扣分 (简单模拟: 每10辆车扣1分，上限30分)
+                    flow_deduction = min(30, self._total_vehicle_count / 10.0)
+                    
+                    traffic_score -= (truck_deduction + flow_deduction)
+                
+                # 确保分数为 40-100 之间 (交通负载通常不直接导致极低分，除非伴随病害)
+                traffic_score = round(max(40.0, min(100.0, traffic_score)), 1)
+
                 # 更新全局状态
                 global_state.update_traffic_stats(
                     total=self._total_vehicle_count,
-                    truck=current_truck_count, # 传递当前帧的统计
-                    car=current_car_count,
-                    bus=current_bus_count
+                    truck=self._total_truck_count, # 传递累计统计
+                    car=self._total_car_count,
+                    bus=self._total_bus_count
                 )
+                # 同步保存健康分到全局状态，供 traffic_page 保存到数据库使用
+                global_state.last_traffic_score = traffic_score
                 
                 # 在画面上绘制越界线和统计信息
                 cv2.line(processed_frame, (0, self._crossing_line_y), (w, self._crossing_line_y), (0, 255, 255), 2)
                 cv2.putText(processed_frame, f"Total Flow: {self._total_vehicle_count}", (20, 50), 
                             cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
-                cv2.putText(processed_frame, f"Current: {len(detected_objects)} | Avg Speed: {avg_speed:.1f} km/h", (20, 90), 
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 255), 2)
+                cv2.putText(processed_frame, f"Car: {self._total_car_count} | Truck: {self._total_truck_count} | Bus: {self._total_bus_count}", (20, 90), 
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 2)
                 
                 # 兼容旧的结果格式，添加统计数据供 UI 显示
+                # 计算当前帧中的目标车型数量
+                current_frame_target_vehicles = sum(1 for obj in detected_objects if obj.get("class", -1) in [2, 5, 7])
+                
                 result["stats"] = {
                     "total_vehicles": self._total_vehicle_count,
-                    "current_frame_vehicles": len(detected_objects),
-                    "car": current_car_count,
-                    "truck": current_truck_count,
-                    "bus": current_bus_count,
+                    "current_frame_vehicles": current_frame_target_vehicles,
+                    "car": self._total_car_count,
+                    "truck": self._total_truck_count,
+                    "bus": self._total_bus_count,
                     "avg_speed": avg_speed
                 }
+                result["score"] = traffic_score
                 
                 # 发送处理结果信号
                 self.frame_processed_signal.emit(processed_frame, result)
@@ -214,7 +267,13 @@ class VideoDetectionThread(BaseThread):
             "video_path": self._video_path,
             "total_frames": self._total_frames,
             "processed_frames": processed_frames,
-            "processing_time": time.time() - start_time
+            "processing_time": time.time() - start_time,
+            # 添加裂缝检测汇总结果
+            "crack_stats": {
+                "score": self._worst_crack_score,
+                "max_width": self._max_crack_width,
+                "max_count": self._max_crack_count
+            }
         }
         self.result_signal.emit(final_result)
 

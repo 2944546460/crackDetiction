@@ -1,7 +1,7 @@
 {
     "Detection": {
         "conf_threshold": 0.25,
-        "iou_threshold": 0.45,
+        "iou_threshold": 0.20000000000000007,
         "model_path": "E:/crackTest/test1/best_seg.pt",
         "pixel_ratio": 0.11624763874381927
     },

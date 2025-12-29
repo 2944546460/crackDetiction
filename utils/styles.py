@@ -12,7 +12,20 @@ GLOBAL_STYLE = """/* 全局样式 */
 }
 
 QMainWindow {
-    background-color: #f4f6f9;
+    background-color: #f5f7fa;
+}
+
+/* 现代 B 端卡片样式 */
+QFrame#card_frame {
+    background-color: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+}
+
+/* 顶部 Header 样式 */
+QFrame#header_frame {
+    background-color: #ffffff;
+    border-bottom: 1px solid #e5e7eb;
 }
 
 /* 左侧导航栏样式 */

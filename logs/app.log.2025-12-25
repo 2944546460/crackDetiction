@@ -1,0 +1,468 @@
+[2025-12-24 22:39:59,716] [INFO] [yolo_detection.py:59] - 加载YOLO模型: E:/crackTest/test1/best_seg.pt
+[2025-12-24 22:39:59,716] [INFO] [yolo_detection.py:62] - YOLO检测模型初始化完成
+[2025-12-24 22:39:59,716] [INFO] [yolo_detection.py:295] - 裂缝分析模型初始化完成
+[2025-12-24 22:39:59,717] [INFO] [main_controller.py:46] - 主控制器初始化完成
+[2025-12-24 22:40:46,636] [INFO] [main_controller.py:67] - 切换到裂缝检测
+[2025-12-24 22:41:21,830] [INFO] [yolo_detection.py:59] - 加载YOLO模型: E:/crackTest/test1/best_seg.pt
+[2025-12-24 22:41:21,831] [INFO] [yolo_detection.py:62] - YOLO检测模型初始化完成
+[2025-12-24 22:41:24,940] [INFO] [yolo_detection.py:197] - YOLO检测模型资源已释放
+[2025-12-24 22:41:58,950] [INFO] [yolo_detection.py:59] - 加载YOLO模型: E:/crackTest/test1/best_seg.pt
+[2025-12-24 22:41:58,950] [INFO] [yolo_detection.py:62] - YOLO检测模型初始化完成
+[2025-12-24 22:41:59,046] [INFO] [yolo_detection.py:197] - YOLO检测模型资源已释放
+[2025-12-24 22:50:06,079] [INFO] [config_manager.py:79] - 配置已保存
+[2025-12-24 22:50:11,280] [INFO] [yolo_detection.py:59] - 加载YOLO模型: E:/crackTest/test1/best_seg.pt
+[2025-12-24 22:50:11,281] [INFO] [yolo_detection.py:62] - YOLO检测模型初始化完成
+[2025-12-24 22:50:11,376] [INFO] [yolo_detection.py:197] - YOLO检测模型资源已释放
+[2025-12-24 23:16:29,383] [ERROR] [loading_thread.py:63] - 启动加载失败
+Traceback (most recent call last):
+  File "E:\crackTest\test1\threads\loading_thread.py", line 38, in _run
+    db.get_projects()
+    ^^^^^^^^^^^^^^^
+AttributeError: 'DBManager' object has no attribute 'get_projects'
+[2025-12-24 23:16:29,385] [ERROR] [main.py:73] - 加载失败: 启动加载失败: 'DBManager' object has no attribute 'get_projects'
+[2025-12-24 23:18:43,002] [INFO] [yolo_detection.py:59] - 加载YOLO模型: E:/crackTest/test1/best_seg.pt
+[2025-12-24 23:18:43,003] [INFO] [yolo_detection.py:62] - YOLO检测模型初始化完成
+[2025-12-24 23:18:43,003] [INFO] [yolo_detection.py:295] - 裂缝分析模型初始化完成
+[2025-12-24 23:18:43,773] [INFO] [main_controller.py:44] - 主控制器使用预加载的模型
+[2025-12-24 23:18:43,773] [INFO] [main_controller.py:57] - 主控制器初始化完成
+[2025-12-24 23:18:43,827] [INFO] [main.py:65] - 系统启动完成
+[2025-12-24 23:18:52,534] [INFO] [main_controller.py:78] - 切换到裂缝检测
+[2025-12-24 23:18:53,919] [INFO] [main_controller.py:87] - 切换到交通荷载
+[2025-12-24 23:18:55,053] [INFO] [main_controller.py:92] - 切换到评估报告
+[2025-12-24 23:18:56,778] [INFO] [main_controller.py:87] - 切换到交通荷载
+[2025-12-24 23:18:57,928] [INFO] [main_controller.py:92] - 切换到评估报告
+[2025-12-24 23:19:42,008] [INFO] [main_controller.py:73] - 切换到首页总览
+[2025-12-24 23:19:50,637] [INFO] [config_manager.py:79] - 配置已保存
+[2025-12-24 23:20:08,069] [INFO] [yolo_detection.py:59] - 加载YOLO模型: E:/crackTest/test1/best_seg.pt
+[2025-12-24 23:20:08,070] [INFO] [yolo_detection.py:62] - YOLO检测模型初始化完成
+[2025-12-24 23:20:08,070] [INFO] [yolo_detection.py:295] - 裂缝分析模型初始化完成
+[2025-12-24 23:20:08,836] [INFO] [main_controller.py:44] - 主控制器使用预加载的模型
+[2025-12-24 23:20:08,836] [INFO] [main_controller.py:57] - 主控制器初始化完成
+[2025-12-24 23:20:08,910] [INFO] [main.py:65] - 系统启动完成
+[2025-12-24 23:20:19,772] [INFO] [main_controller.py:92] - 切换到评估报告
+[2025-12-24 23:20:20,997] [INFO] [main_controller.py:92] - 切换到评估报告
+[2025-12-24 23:20:22,251] [INFO] [main_controller.py:87] - 切换到交通荷载
+[2025-12-24 23:20:23,231] [INFO] [main_controller.py:78] - 切换到裂缝检测
+[2025-12-24 23:20:29,136] [INFO] [main_controller.py:73] - 切换到首页总览
+[2025-12-24 23:23:09,431] [INFO] [yolo_detection.py:59] - 加载YOLO模型: E:/crackTest/test1/best_seg.pt
+[2025-12-24 23:23:09,431] [INFO] [yolo_detection.py:62] - YOLO检测模型初始化完成
+[2025-12-24 23:23:09,432] [INFO] [yolo_detection.py:323] - 裂缝分析模型初始化完成
+[2025-12-24 23:23:10,194] [INFO] [main_controller.py:44] - 主控制器使用预加载的模型
+[2025-12-24 23:23:10,195] [INFO] [main_controller.py:57] - 主控制器初始化完成
+[2025-12-24 23:23:10,275] [INFO] [main.py:65] - 系统启动完成
+[2025-12-24 23:24:53,719] [INFO] [main_controller.py:87] - 切换到交通荷载
+[2025-12-24 23:24:58,072] [INFO] [yolo_detection.py:59] - 加载YOLO模型: E:/crackTest/test1/best_seg.pt
+[2025-12-24 23:24:58,073] [INFO] [yolo_detection.py:62] - YOLO检测模型初始化完成
+[2025-12-24 23:24:58,073] [INFO] [yolo_detection.py:225] - YOLO检测模型资源已释放
+[2025-12-24 23:24:58,075] [ERROR] [base_thread.py:44] - 线程执行出错
+Traceback (most recent call last):
+  File "E:\crackTest\test1\threads\base_thread.py", line 40, in run
+    self._run()  # 调用子类实现的具体任务方法
+    ^^^^^^^^^^^
+  File "E:\crackTest\test1\threads\video_detection_thread.py", line 48, in _run
+    self._video_model = VideoProcessingModel()
+                        ^^^^^^^^^^^^^^^^^^^^^^
+TypeError: Can't instantiate abstract class VideoProcessingModel with abstract methods initialize, process, process_frame, release
+[2025-12-24 23:25:09,611] [INFO] [main_controller.py:78] - 切换到裂缝检测
+[2025-12-24 23:25:17,907] [INFO] [main_controller.py:73] - 切换到首页总览
+[2025-12-24 23:25:20,099] [INFO] [main_controller.py:78] - 切换到裂缝检测
+[2025-12-24 23:25:20,827] [INFO] [main_controller.py:87] - 切换到交通荷载
+[2025-12-24 23:25:21,486] [INFO] [main_controller.py:92] - 切换到评估报告
+[2025-12-25 10:30:04,714] [INFO] [yolo_detection.py:59] - 加载YOLO模型: E:/crackTest/test1/best_seg.pt
+[2025-12-25 10:30:04,715] [INFO] [yolo_detection.py:62] - YOLO检测模型初始化完成
+[2025-12-25 10:30:04,715] [INFO] [yolo_detection.py:323] - 裂缝分析模型初始化完成
+[2025-12-25 10:30:05,491] [INFO] [main_controller.py:44] - 主控制器使用预加载的模型
+[2025-12-25 10:30:05,491] [INFO] [main_controller.py:57] - 主控制器初始化完成
+[2025-12-25 10:30:05,546] [INFO] [main.py:65] - 系统启动完成
+[2025-12-25 10:30:10,487] [INFO] [main_controller.py:78] - 切换到裂缝检测
+[2025-12-25 10:30:11,510] [INFO] [main_controller.py:87] - 切换到交通荷载
+[2025-12-25 10:30:12,077] [INFO] [main_controller.py:92] - 切换到评估报告
+[2025-12-25 10:30:15,239] [INFO] [main_controller.py:92] - 切换到评估报告
+[2025-12-25 10:30:15,526] [INFO] [main_controller.py:87] - 切换到交通荷载
+[2025-12-25 10:30:16,101] [INFO] [main_controller.py:73] - 切换到首页总览
+[2025-12-25 10:30:16,686] [INFO] [main_controller.py:78] - 切换到裂缝检测
+[2025-12-25 10:30:16,998] [INFO] [main_controller.py:87] - 切换到交通荷载
+[2025-12-25 10:30:17,337] [INFO] [main_controller.py:92] - 切换到评估报告
+[2025-12-25 10:30:37,401] [INFO] [main_controller.py:92] - 切换到评估报告
+[2025-12-25 10:30:38,261] [INFO] [main_controller.py:87] - 切换到交通荷载
+[2025-12-25 10:30:38,837] [INFO] [main_controller.py:78] - 切换到裂缝检测
+[2025-12-25 10:30:39,310] [INFO] [main_controller.py:73] - 切换到首页总览
+[2025-12-25 10:30:43,334] [INFO] [main_controller.py:78] - 切换到裂缝检测
+[2025-12-25 10:31:24,072] [INFO] [yolo_detection.py:59] - 加载YOLO模型: E:/crackTest/test1/best_seg.pt
+[2025-12-25 10:31:24,072] [INFO] [yolo_detection.py:62] - YOLO检测模型初始化完成
+[2025-12-25 10:31:24,072] [INFO] [yolo_detection.py:323] - 裂缝分析模型初始化完成
+[2025-12-25 10:31:24,844] [INFO] [main_controller.py:44] - 主控制器使用预加载的模型
+[2025-12-25 10:31:24,844] [INFO] [main_controller.py:57] - 主控制器初始化完成
+[2025-12-25 10:31:24,901] [INFO] [main.py:65] - 系统启动完成
+[2025-12-25 10:32:09,389] [INFO] [main_controller.py:78] - 切换到裂缝检测
+[2025-12-25 10:32:19,870] [INFO] [main_controller.py:87] - 切换到交通荷载
+[2025-12-25 10:32:29,410] [INFO] [main_controller.py:92] - 切换到评估报告
+[2025-12-25 10:33:56,956] [INFO] [main_controller.py:73] - 切换到首页总览
+[2025-12-25 10:33:57,156] [INFO] [main_controller.py:73] - 切换到首页总览
+[2025-12-25 10:33:58,332] [INFO] [main_controller.py:73] - 切换到首页总览
+[2025-12-25 10:34:35,845] [INFO] [main_controller.py:78] - 切换到裂缝检测
+[2025-12-25 10:35:09,380] [INFO] [main_controller.py:87] - 切换到交通荷载
+[2025-12-25 10:35:24,804] [INFO] [yolo_detection.py:59] - 加载YOLO模型: E:/crackTest/test1/best_seg.pt
+[2025-12-25 10:35:24,805] [INFO] [yolo_detection.py:62] - YOLO检测模型初始化完成
+[2025-12-25 10:35:24,806] [INFO] [yolo_detection.py:225] - YOLO检测模型资源已释放
+[2025-12-25 10:35:24,807] [ERROR] [base_thread.py:44] - 线程执行出错
+Traceback (most recent call last):
+  File "E:\crackTest\test1\threads\base_thread.py", line 40, in run
+    self._run()  # 调用子类实现的具体任务方法
+    ^^^^^^^^^^^
+  File "E:\crackTest\test1\threads\video_detection_thread.py", line 48, in _run
+    self._video_model = VideoProcessingModel()
+                        ^^^^^^^^^^^^^^^^^^^^^^
+TypeError: Can't instantiate abstract class VideoProcessingModel with abstract methods initialize, process, process_frame, release
+[2025-12-25 10:35:29,724] [INFO] [main_controller.py:73] - 切换到首页总览
+[2025-12-25 10:35:30,883] [INFO] [main_controller.py:78] - 切换到裂缝检测
+[2025-12-25 10:35:35,980] [INFO] [main_controller.py:92] - 切换到评估报告
+[2025-12-25 10:35:37,516] [INFO] [main_controller.py:87] - 切换到交通荷载
+[2025-12-25 10:39:53,290] [INFO] [main_controller.py:78] - 切换到裂缝检测
+[2025-12-25 10:39:55,202] [INFO] [main_controller.py:73] - 切换到首页总览
+[2025-12-25 10:39:56,002] [INFO] [main_controller.py:87] - 切换到交通荷载
+[2025-12-25 10:39:56,482] [INFO] [main_controller.py:92] - 切换到评估报告
+[2025-12-25 10:40:25,178] [INFO] [main_controller.py:73] - 切换到首页总览
+[2025-12-25 10:45:31,365] [INFO] [yolo_detection.py:59] - 加载YOLO模型: E:/crackTest/test1/best_seg.pt
+[2025-12-25 10:45:31,365] [INFO] [yolo_detection.py:62] - YOLO检测模型初始化完成
+[2025-12-25 10:45:31,366] [INFO] [yolo_detection.py:323] - 裂缝分析模型初始化完成
+[2025-12-25 10:45:48,748] [INFO] [main_controller.py:44] - 主控制器使用预加载的模型
+[2025-12-25 10:45:48,748] [INFO] [main_controller.py:57] - 主控制器初始化完成
+[2025-12-25 10:45:48,772] [INFO] [main.py:71] - 系统启动完成
+[2025-12-25 10:46:08,780] [INFO] [yolo_detection.py:59] - 加载YOLO模型: E:/crackTest/test1/best_seg.pt
+[2025-12-25 10:46:08,781] [INFO] [yolo_detection.py:62] - YOLO检测模型初始化完成
+[2025-12-25 10:46:08,781] [INFO] [yolo_detection.py:323] - 裂缝分析模型初始化完成
+[2025-12-25 10:47:09,495] [INFO] [main.py:74] - 用户取消登录，程序退出
+[2025-12-25 10:47:20,005] [INFO] [yolo_detection.py:59] - 加载YOLO模型: E:/crackTest/test1/best_seg.pt
+[2025-12-25 10:47:20,007] [INFO] [yolo_detection.py:62] - YOLO检测模型初始化完成
+[2025-12-25 10:47:20,007] [INFO] [yolo_detection.py:323] - 裂缝分析模型初始化完成
+[2025-12-25 10:47:39,612] [INFO] [main.py:74] - 用户取消登录，程序退出
+[2025-12-25 10:48:52,051] [INFO] [yolo_detection.py:59] - 加载YOLO模型: E:/crackTest/test1/best_seg.pt
+[2025-12-25 10:48:52,051] [INFO] [yolo_detection.py:62] - YOLO检测模型初始化完成
+[2025-12-25 10:48:52,052] [INFO] [yolo_detection.py:323] - 裂缝分析模型初始化完成
+[2025-12-25 10:49:04,387] [INFO] [main.py:74] - 用户取消登录，程序退出
+[2025-12-25 10:49:22,596] [INFO] [yolo_detection.py:59] - 加载YOLO模型: E:/crackTest/test1/best_seg.pt
+[2025-12-25 10:49:22,597] [INFO] [yolo_detection.py:62] - YOLO检测模型初始化完成
+[2025-12-25 10:49:22,597] [INFO] [yolo_detection.py:323] - 裂缝分析模型初始化完成
+[2025-12-25 10:50:44,315] [INFO] [main.py:74] - 用户取消登录，程序退出
+[2025-12-25 10:51:57,297] [INFO] [yolo_detection.py:59] - 加载YOLO模型: E:/crackTest/test1/best_seg.pt
+[2025-12-25 10:51:57,297] [INFO] [yolo_detection.py:62] - YOLO检测模型初始化完成
+[2025-12-25 10:51:57,297] [INFO] [yolo_detection.py:323] - 裂缝分析模型初始化完成
+[2025-12-25 10:52:39,557] [INFO] [main_controller.py:44] - 主控制器使用预加载的模型
+[2025-12-25 10:52:39,558] [INFO] [main_controller.py:57] - 主控制器初始化完成
+[2025-12-25 10:52:39,590] [INFO] [main.py:71] - 系统启动完成
+[2025-12-25 10:53:56,566] [INFO] [yolo_detection.py:59] - 加载YOLO模型: E:/crackTest/test1/best_seg.pt
+[2025-12-25 10:53:56,566] [INFO] [yolo_detection.py:62] - YOLO检测模型初始化完成
+[2025-12-25 10:53:56,567] [INFO] [yolo_detection.py:323] - 裂缝分析模型初始化完成
+[2025-12-25 10:53:58,518] [INFO] [main_controller.py:44] - 主控制器使用预加载的模型
+[2025-12-25 10:53:58,519] [INFO] [main_controller.py:57] - 主控制器初始化完成
+[2025-12-25 10:53:58,549] [INFO] [main.py:71] - 系统启动完成
+[2025-12-25 10:55:59,404] [INFO] [yolo_detection.py:59] - 加载YOLO模型: E:/crackTest/test1/best_seg.pt
+[2025-12-25 10:55:59,405] [INFO] [yolo_detection.py:62] - YOLO检测模型初始化完成
+[2025-12-25 10:55:59,405] [INFO] [yolo_detection.py:323] - 裂缝分析模型初始化完成
+[2025-12-25 10:56:03,183] [INFO] [main_controller.py:44] - 主控制器使用预加载的模型
+[2025-12-25 10:56:03,183] [INFO] [main_controller.py:57] - 主控制器初始化完成
+[2025-12-25 10:56:03,209] [INFO] [main.py:71] - 系统启动完成
+[2025-12-25 10:58:53,188] [INFO] [yolo_detection.py:59] - 加载YOLO模型: E:/crackTest/test1/best_seg.pt
+[2025-12-25 10:58:53,189] [INFO] [yolo_detection.py:62] - YOLO检测模型初始化完成
+[2025-12-25 10:58:53,189] [INFO] [yolo_detection.py:323] - 裂缝分析模型初始化完成
+[2025-12-25 10:58:54,824] [INFO] [main_controller.py:44] - 主控制器使用预加载的模型
+[2025-12-25 10:58:54,824] [INFO] [main_controller.py:57] - 主控制器初始化完成
+[2025-12-25 10:58:54,849] [INFO] [main.py:71] - 系统启动完成
+[2025-12-25 11:02:09,954] [INFO] [yolo_detection.py:59] - 加载YOLO模型: E:/crackTest/test1/best_seg.pt
+[2025-12-25 11:02:09,955] [INFO] [yolo_detection.py:62] - YOLO检测模型初始化完成
+[2025-12-25 11:02:09,956] [INFO] [yolo_detection.py:323] - 裂缝分析模型初始化完成
+[2025-12-25 11:02:13,878] [INFO] [main_controller.py:44] - 主控制器使用预加载的模型
+[2025-12-25 11:02:13,878] [INFO] [main_controller.py:57] - 主控制器初始化完成
+[2025-12-25 11:02:13,915] [INFO] [main.py:71] - 系统启动完成
+[2025-12-25 11:04:43,352] [INFO] [yolo_detection.py:59] - 加载YOLO模型: E:/crackTest/test1/best_seg.pt
+[2025-12-25 11:04:43,352] [INFO] [yolo_detection.py:62] - YOLO检测模型初始化完成
+[2025-12-25 11:04:43,353] [INFO] [yolo_detection.py:323] - 裂缝分析模型初始化完成
+[2025-12-25 11:04:45,196] [INFO] [main_controller.py:44] - 主控制器使用预加载的模型
+[2025-12-25 11:04:45,196] [INFO] [main_controller.py:57] - 主控制器初始化完成
+[2025-12-25 11:04:45,235] [INFO] [main.py:71] - 系统启动完成
+[2025-12-25 11:06:13,150] [INFO] [yolo_detection.py:59] - 加载YOLO模型: E:/crackTest/test1/best_seg.pt
+[2025-12-25 11:06:13,150] [INFO] [yolo_detection.py:62] - YOLO检测模型初始化完成
+[2025-12-25 11:06:13,151] [INFO] [yolo_detection.py:323] - 裂缝分析模型初始化完成
+[2025-12-25 11:06:15,646] [INFO] [main_controller.py:44] - 主控制器使用预加载的模型
+[2025-12-25 11:06:15,647] [INFO] [main_controller.py:57] - 主控制器初始化完成
+[2025-12-25 11:06:15,678] [INFO] [main.py:71] - 系统启动完成
+[2025-12-25 11:06:51,335] [INFO] [main_controller.py:78] - 切换到裂缝检测
+[2025-12-25 11:07:04,256] [INFO] [main_controller.py:87] - 切换到交通荷载
+[2025-12-25 11:07:07,027] [INFO] [yolo_detection.py:59] - 加载YOLO模型: E:/crackTest/test1/best_seg.pt
+[2025-12-25 11:07:07,027] [INFO] [yolo_detection.py:62] - YOLO检测模型初始化完成
+[2025-12-25 11:07:07,027] [INFO] [yolo_detection.py:225] - YOLO检测模型资源已释放
+[2025-12-25 11:07:07,029] [ERROR] [base_thread.py:44] - 线程执行出错
+Traceback (most recent call last):
+  File "E:\crackTest\test1\threads\base_thread.py", line 40, in run
+    self._run()  # 调用子类实现的具体任务方法
+    ^^^^^^^^^^^
+  File "E:\crackTest\test1\threads\video_detection_thread.py", line 48, in _run
+    self._video_model = VideoProcessingModel()
+                        ^^^^^^^^^^^^^^^^^^^^^^
+TypeError: Can't instantiate abstract class VideoProcessingModel with abstract methods initialize, process, process_frame, release
+[2025-12-25 11:09:08,886] [INFO] [main_controller.py:78] - 切换到裂缝检测
+[2025-12-25 11:09:09,670] [INFO] [main_controller.py:87] - 切换到交通荷载
+[2025-12-25 11:09:11,206] [INFO] [main_controller.py:92] - 切换到评估报告
+[2025-12-25 11:09:30,960] [INFO] [main_controller.py:92] - 切换到评估报告
+[2025-12-25 11:09:34,685] [INFO] [main_controller.py:78] - 切换到裂缝检测
+[2025-12-25 11:09:34,911] [INFO] [main_controller.py:87] - 切换到交通荷载
+[2025-12-25 11:09:44,223] [INFO] [main_controller.py:73] - 切换到首页总览
+[2025-12-25 11:09:45,006] [INFO] [main_controller.py:78] - 切换到裂缝检测
+[2025-12-25 11:09:45,342] [INFO] [main_controller.py:87] - 切换到交通荷载
+[2025-12-25 11:09:45,687] [INFO] [main_controller.py:92] - 切换到评估报告
+[2025-12-25 11:11:55,191] [INFO] [yolo_detection.py:59] - 加载YOLO模型: E:/crackTest/test1/best_seg.pt
+[2025-12-25 11:11:55,192] [INFO] [yolo_detection.py:62] - YOLO检测模型初始化完成
+[2025-12-25 11:11:55,192] [INFO] [yolo_detection.py:323] - 裂缝分析模型初始化完成
+[2025-12-25 11:11:57,114] [INFO] [main_controller.py:44] - 主控制器使用预加载的模型
+[2025-12-25 11:11:57,114] [INFO] [main_controller.py:57] - 主控制器初始化完成
+[2025-12-25 11:11:57,139] [INFO] [main.py:71] - 系统启动完成
+[2025-12-25 11:11:59,962] [INFO] [main_controller.py:92] - 切换到评估报告
+[2025-12-25 11:12:00,238] [INFO] [main_controller.py:87] - 切换到交通荷载
+[2025-12-25 11:12:00,549] [INFO] [main_controller.py:73] - 切换到首页总览
+[2025-12-25 11:12:00,910] [INFO] [main_controller.py:78] - 切换到裂缝检测
+[2025-12-25 11:12:57,649] [INFO] [yolo_detection.py:59] - 加载YOLO模型: E:/crackTest/test1/best_seg.pt
+[2025-12-25 11:12:57,650] [INFO] [yolo_detection.py:62] - YOLO检测模型初始化完成
+[2025-12-25 11:12:57,650] [INFO] [yolo_detection.py:323] - 裂缝分析模型初始化完成
+[2025-12-25 11:12:59,447] [INFO] [main_controller.py:44] - 主控制器使用预加载的模型
+[2025-12-25 11:12:59,447] [INFO] [main_controller.py:57] - 主控制器初始化完成
+[2025-12-25 11:12:59,480] [INFO] [main.py:71] - 系统启动完成
+[2025-12-25 11:13:00,685] [INFO] [main_controller.py:78] - 切换到裂缝检测
+[2025-12-25 11:13:01,117] [INFO] [main_controller.py:87] - 切换到交通荷载
+[2025-12-25 11:14:23,707] [INFO] [yolo_detection.py:59] - 加载YOLO模型: E:/crackTest/test1/best_seg.pt
+[2025-12-25 11:14:23,707] [INFO] [yolo_detection.py:62] - YOLO检测模型初始化完成
+[2025-12-25 11:14:23,708] [INFO] [yolo_detection.py:323] - 裂缝分析模型初始化完成
+[2025-12-25 11:14:25,674] [INFO] [main_controller.py:44] - 主控制器使用预加载的模型
+[2025-12-25 11:14:25,674] [INFO] [main_controller.py:57] - 主控制器初始化完成
+[2025-12-25 11:14:25,705] [INFO] [main.py:71] - 系统启动完成
+[2025-12-25 11:14:27,654] [INFO] [main_controller.py:87] - 切换到交通荷载
+[2025-12-25 11:14:42,252] [INFO] [yolo_detection.py:59] - 加载YOLO模型: E:/crackTest/test1/best_seg.pt
+[2025-12-25 11:14:42,253] [INFO] [yolo_detection.py:62] - YOLO检测模型初始化完成
+[2025-12-25 11:14:42,253] [INFO] [yolo_detection.py:225] - YOLO检测模型资源已释放
+[2025-12-25 11:14:42,255] [ERROR] [base_thread.py:44] - 线程执行出错
+Traceback (most recent call last):
+  File "E:\crackTest\test1\threads\base_thread.py", line 40, in run
+    self._run()  # 调用子类实现的具体任务方法
+    ^^^^^^^^^^^
+  File "E:\crackTest\test1\threads\video_detection_thread.py", line 48, in _run
+    self._video_model = VideoProcessingModel()
+                        ^^^^^^^^^^^^^^^^^^^^^^
+TypeError: Can't instantiate abstract class VideoProcessingModel with abstract methods initialize, process, process_frame, release
+[2025-12-25 11:14:49,028] [INFO] [yolo_detection.py:59] - 加载YOLO模型: E:/crackTest/test1/best_seg.pt
+[2025-12-25 11:14:49,029] [INFO] [yolo_detection.py:62] - YOLO检测模型初始化完成
+[2025-12-25 11:14:49,029] [INFO] [yolo_detection.py:225] - YOLO检测模型资源已释放
+[2025-12-25 11:14:49,030] [ERROR] [base_thread.py:44] - 线程执行出错
+Traceback (most recent call last):
+  File "E:\crackTest\test1\threads\base_thread.py", line 40, in run
+    self._run()  # 调用子类实现的具体任务方法
+    ^^^^^^^^^^^
+  File "E:\crackTest\test1\threads\video_detection_thread.py", line 48, in _run
+    self._video_model = VideoProcessingModel()
+                        ^^^^^^^^^^^^^^^^^^^^^^
+TypeError: Can't instantiate abstract class VideoProcessingModel with abstract methods initialize, process, process_frame, release
+[2025-12-25 11:14:53,561] [INFO] [yolo_detection.py:59] - 加载YOLO模型: E:/crackTest/test1/best_seg.pt
+[2025-12-25 11:14:53,561] [INFO] [yolo_detection.py:62] - YOLO检测模型初始化完成
+[2025-12-25 11:14:53,562] [INFO] [yolo_detection.py:225] - YOLO检测模型资源已释放
+[2025-12-25 11:14:53,563] [ERROR] [base_thread.py:44] - 线程执行出错
+Traceback (most recent call last):
+  File "E:\crackTest\test1\threads\base_thread.py", line 40, in run
+    self._run()  # 调用子类实现的具体任务方法
+    ^^^^^^^^^^^
+  File "E:\crackTest\test1\threads\video_detection_thread.py", line 48, in _run
+    self._video_model = VideoProcessingModel()
+                        ^^^^^^^^^^^^^^^^^^^^^^
+TypeError: Can't instantiate abstract class VideoProcessingModel with abstract methods initialize, process, process_frame, release
+[2025-12-25 11:14:54,274] [INFO] [yolo_detection.py:59] - 加载YOLO模型: E:/crackTest/test1/best_seg.pt
+[2025-12-25 11:14:54,275] [INFO] [yolo_detection.py:62] - YOLO检测模型初始化完成
+[2025-12-25 11:14:54,275] [INFO] [yolo_detection.py:225] - YOLO检测模型资源已释放
+[2025-12-25 11:14:54,277] [ERROR] [base_thread.py:44] - 线程执行出错
+Traceback (most recent call last):
+  File "E:\crackTest\test1\threads\base_thread.py", line 40, in run
+    self._run()  # 调用子类实现的具体任务方法
+    ^^^^^^^^^^^
+  File "E:\crackTest\test1\threads\video_detection_thread.py", line 48, in _run
+    self._video_model = VideoProcessingModel()
+                        ^^^^^^^^^^^^^^^^^^^^^^
+TypeError: Can't instantiate abstract class VideoProcessingModel with abstract methods initialize, process, process_frame, release
+[2025-12-25 11:16:23,124] [INFO] [yolo_detection.py:59] - 加载YOLO模型: E:/crackTest/test1/best_seg.pt
+[2025-12-25 11:16:23,125] [INFO] [yolo_detection.py:62] - YOLO检测模型初始化完成
+[2025-12-25 11:16:23,125] [INFO] [yolo_detection.py:323] - 裂缝分析模型初始化完成
+[2025-12-25 11:16:25,281] [INFO] [main_controller.py:44] - 主控制器使用预加载的模型
+[2025-12-25 11:16:25,282] [INFO] [main_controller.py:57] - 主控制器初始化完成
+[2025-12-25 11:16:25,314] [INFO] [main.py:71] - 系统启动完成
+[2025-12-25 11:16:26,661] [INFO] [main_controller.py:87] - 切换到交通荷载
+[2025-12-25 11:16:36,751] [INFO] [yolo_detection.py:59] - 加载YOLO模型: E:/crackTest/test1/best_seg.pt
+[2025-12-25 11:16:36,751] [INFO] [yolo_detection.py:62] - YOLO检测模型初始化完成
+[2025-12-25 11:18:56,001] [INFO] [yolo_detection.py:59] - 加载YOLO模型: E:/crackTest/test1/best_seg.pt
+[2025-12-25 11:18:56,002] [INFO] [yolo_detection.py:62] - YOLO检测模型初始化完成
+[2025-12-25 11:18:56,003] [INFO] [yolo_detection.py:323] - 裂缝分析模型初始化完成
+[2025-12-25 11:18:57,895] [INFO] [main_controller.py:44] - 主控制器使用预加载的模型
+[2025-12-25 11:18:57,895] [INFO] [main_controller.py:57] - 主控制器初始化完成
+[2025-12-25 11:18:57,919] [INFO] [main.py:74] - 系统启动完成
+[2025-12-25 11:18:58,899] [INFO] [main_controller.py:87] - 切换到交通荷载
+[2025-12-25 11:19:11,525] [INFO] [yolo_detection.py:59] - 加载YOLO模型: E:/crackTest/test1/best_seg.pt
+[2025-12-25 11:19:11,525] [INFO] [yolo_detection.py:62] - YOLO检测模型初始化完成
+[2025-12-25 11:19:38,201] [INFO] [yolo_detection.py:225] - YOLO检测模型资源已释放
+[2025-12-25 11:19:57,514] [INFO] [main_controller.py:78] - 切换到裂缝检测
+[2025-12-25 11:19:58,514] [INFO] [main_controller.py:87] - 切换到交通荷载
+[2025-12-25 11:20:07,376] [INFO] [main_controller.py:92] - 切换到评估报告
+[2025-12-25 11:20:08,634] [INFO] [main_controller.py:78] - 切换到裂缝检测
+[2025-12-25 11:20:09,370] [INFO] [main_controller.py:87] - 切换到交通荷载
+[2025-12-25 11:41:51,578] [INFO] [yolo_detection.py:59] - 加载YOLO模型: E:/crackTest/test1/best_seg.pt
+[2025-12-25 11:41:51,578] [INFO] [yolo_detection.py:62] - YOLO检测模型初始化完成
+[2025-12-25 11:42:09,742] [INFO] [main_controller.py:78] - 切换到裂缝检测
+[2025-12-25 11:42:15,358] [INFO] [yolo_detection.py:225] - YOLO检测模型资源已释放
+[2025-12-25 11:42:15,433] [INFO] [main_controller.py:87] - 切换到交通荷载
+[2025-12-25 12:01:35,525] [INFO] [yolo_detection.py:59] - 加载YOLO模型: E:/crackTest/test1/best_seg.pt
+[2025-12-25 12:01:35,526] [INFO] [yolo_detection.py:62] - YOLO检测模型初始化完成
+[2025-12-25 12:01:35,526] [INFO] [yolo_detection.py:323] - 裂缝分析模型初始化完成
+[2025-12-25 12:01:46,899] [INFO] [main_controller.py:44] - 主控制器使用预加载的模型
+[2025-12-25 12:01:46,900] [INFO] [main_controller.py:57] - 主控制器初始化完成
+[2025-12-25 12:01:46,929] [INFO] [main.py:74] - 系统启动完成
+[2025-12-25 12:01:55,570] [INFO] [main_controller.py:78] - 切换到裂缝检测
+[2025-12-25 12:02:03,482] [INFO] [main_controller.py:87] - 切换到交通荷载
+[2025-12-25 12:02:12,896] [INFO] [main_controller.py:92] - 切换到评估报告
+[2025-12-25 12:11:23,748] [INFO] [main_controller.py:92] - 切换到评估报告
+[2025-12-25 12:11:25,277] [INFO] [main_controller.py:87] - 切换到交通荷载
+[2025-12-25 12:11:26,709] [INFO] [main_controller.py:78] - 切换到裂缝检测
+[2025-12-25 12:11:28,326] [INFO] [main_controller.py:73] - 切换到首页总览
+[2025-12-25 12:11:30,390] [INFO] [main_controller.py:78] - 切换到裂缝检测
+[2025-12-25 12:11:31,126] [INFO] [main_controller.py:87] - 切换到交通荷载
+[2025-12-25 12:11:31,699] [INFO] [main_controller.py:92] - 切换到评估报告
+[2025-12-25 12:11:34,025] [INFO] [main_controller.py:92] - 切换到评估报告
+[2025-12-25 12:11:34,429] [INFO] [main_controller.py:87] - 切换到交通荷载
+[2025-12-25 12:11:34,973] [INFO] [main_controller.py:78] - 切换到裂缝检测
+[2025-12-25 12:11:35,221] [INFO] [main_controller.py:73] - 切换到首页总览
+[2025-12-25 12:11:35,533] [INFO] [main_controller.py:78] - 切换到裂缝检测
+[2025-12-25 12:11:35,870] [INFO] [main_controller.py:87] - 切换到交通荷载
+[2025-12-25 12:11:36,932] [INFO] [main_controller.py:92] - 切换到评估报告
+[2025-12-25 12:11:38,445] [INFO] [main_controller.py:78] - 切换到裂缝检测
+[2025-12-25 12:11:38,965] [INFO] [main_controller.py:87] - 切换到交通荷载
+[2025-12-25 12:11:39,424] [INFO] [main_controller.py:92] - 切换到评估报告
+[2025-12-25 12:11:41,830] [INFO] [main_controller.py:73] - 切换到首页总览
+[2025-12-25 12:11:42,116] [INFO] [main_controller.py:78] - 切换到裂缝检测
+[2025-12-25 12:11:42,645] [INFO] [main_controller.py:73] - 切换到首页总览
+[2025-12-25 12:11:43,269] [INFO] [main_controller.py:78] - 切换到裂缝检测
+[2025-12-25 12:11:43,685] [INFO] [main_controller.py:87] - 切换到交通荷载
+[2025-12-25 12:11:44,929] [INFO] [main_controller.py:92] - 切换到评估报告
+[2025-12-25 12:12:19,141] [INFO] [main_controller.py:73] - 切换到首页总览
+[2025-12-25 13:04:39,074] [INFO] [yolo_detection.py:59] - 加载YOLO模型: E:/crackTest/test1/best_seg.pt
+[2025-12-25 13:04:39,074] [INFO] [yolo_detection.py:62] - YOLO检测模型初始化完成
+[2025-12-25 13:04:39,075] [INFO] [yolo_detection.py:323] - 裂缝分析模型初始化完成
+[2025-12-25 13:04:41,683] [INFO] [main_controller.py:44] - 主控制器使用预加载的模型
+[2025-12-25 13:04:41,684] [INFO] [main_controller.py:57] - 主控制器初始化完成
+[2025-12-25 13:04:41,719] [INFO] [main.py:74] - 系统启动完成
+[2025-12-25 13:04:42,953] [INFO] [main_controller.py:87] - 切换到交通荷载
+[2025-12-25 13:04:54,211] [INFO] [yolo_detection.py:59] - 加载YOLO模型: yolo11n.pt
+[2025-12-25 13:04:54,212] [INFO] [yolo_detection.py:62] - YOLO检测模型初始化完成
+[2025-12-25 13:05:21,409] [INFO] [yolo_detection.py:225] - YOLO检测模型资源已释放
+[2025-12-25 13:10:05,398] [INFO] [yolo_detection.py:59] - 加载YOLO模型: E:/crackTest/test1/best_seg.pt
+[2025-12-25 13:10:05,398] [INFO] [yolo_detection.py:62] - YOLO检测模型初始化完成
+[2025-12-25 13:10:05,398] [INFO] [yolo_detection.py:323] - 裂缝分析模型初始化完成
+[2025-12-25 13:10:23,826] [INFO] [main_controller.py:44] - 主控制器使用预加载的模型
+[2025-12-25 13:10:23,826] [INFO] [main_controller.py:57] - 主控制器初始化完成
+[2025-12-25 13:10:23,858] [INFO] [main.py:74] - 系统启动完成
+[2025-12-25 13:10:24,854] [INFO] [main_controller.py:87] - 切换到交通荷载
+[2025-12-25 13:10:39,620] [INFO] [yolo_detection.py:59] - 加载YOLO模型: yolo11n.pt
+[2025-12-25 13:10:39,621] [INFO] [yolo_detection.py:62] - YOLO检测模型初始化完成
+[2025-12-25 13:11:06,945] [INFO] [yolo_detection.py:225] - YOLO检测模型资源已释放
+[2025-12-25 13:17:57,371] [ERROR] [traffic_page.py:347] - 启动交通监测失败: 'NoneType' object has no attribute 'frame_processed_signal'
+Traceback (most recent call last):
+  File "E:\crackTest\test1\views\traffic_page.py", line 325, in _on_start_monitoring
+    self.yolo_thread.frame_processed_signal.connect(self._update_video_label_from_frame)
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'NoneType' object has no attribute 'frame_processed_signal'
+
+[2025-12-25 13:18:07,721] [INFO] [yolo_detection.py:59] - 加载YOLO模型: yolo11n.pt
+[2025-12-25 13:18:07,721] [INFO] [yolo_detection.py:62] - YOLO检测模型初始化完成
+[2025-12-25 13:18:08,344] [INFO] [yolo_detection.py:225] - YOLO检测模型资源已释放
+[2025-12-25 13:18:17,103] [INFO] [main_controller.py:92] - 切换到评估报告
+[2025-12-25 13:18:26,722] [INFO] [main_controller.py:87] - 切换到交通荷载
+[2025-12-25 13:18:27,035] [INFO] [main_controller.py:78] - 切换到裂缝检测
+[2025-12-25 13:18:27,363] [INFO] [main_controller.py:73] - 切换到首页总览
+[2025-12-25 13:18:29,978] [INFO] [main_controller.py:78] - 切换到裂缝检测
+[2025-12-25 13:18:45,034] [INFO] [yolo_detection.py:59] - 加载YOLO模型: E:/crackTest/test1/best_seg.pt
+[2025-12-25 13:18:45,034] [INFO] [yolo_detection.py:62] - YOLO检测模型初始化完成
+[2025-12-25 13:18:45,126] [INFO] [yolo_detection.py:225] - YOLO检测模型资源已释放
+[2025-12-25 13:18:55,122] [INFO] [yolo_detection.py:59] - 加载YOLO模型: E:/crackTest/test1/best_seg.pt
+[2025-12-25 13:18:55,123] [INFO] [yolo_detection.py:62] - YOLO检测模型初始化完成
+[2025-12-25 13:18:55,274] [ERROR] [base_model.py:165] - 打开视频失败: 无法打开视频文件: 0
+[2025-12-25 13:18:55,276] [INFO] [yolo_detection.py:225] - YOLO检测模型资源已释放
+[2025-12-25 13:18:55,280] [ERROR] [base_thread.py:44] - 线程执行出错
+Traceback (most recent call last):
+  File "E:\crackTest\test1\threads\base_thread.py", line 40, in run
+    self._run()  # 调用子类实现的具体任务方法
+    ^^^^^^^^^^^
+  File "E:\crackTest\test1\threads\video_detection_thread.py", line 51, in _run
+    self._video_model.initialize() # 调用初始化
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Exception: 无法打开视频文件: 0
+[2025-12-25 13:19:27,919] [INFO] [yolo_detection.py:59] - 加载YOLO模型: E:/crackTest/test1/best_seg.pt
+[2025-12-25 13:19:27,920] [INFO] [yolo_detection.py:62] - YOLO检测模型初始化完成
+[2025-12-25 13:19:34,641] [INFO] [yolo_detection.py:225] - YOLO检测模型资源已释放
+[2025-12-25 13:21:29,077] [INFO] [yolo_detection.py:59] - 加载YOLO模型: E:/crackTest/test1/best_seg.pt
+[2025-12-25 13:21:29,077] [INFO] [yolo_detection.py:62] - YOLO检测模型初始化完成
+[2025-12-25 13:21:29,078] [INFO] [yolo_detection.py:323] - 裂缝分析模型初始化完成
+[2025-12-25 13:21:30,742] [INFO] [main_controller.py:44] - 主控制器使用预加载的模型
+[2025-12-25 13:21:30,742] [INFO] [main_controller.py:57] - 主控制器初始化完成
+[2025-12-25 13:21:30,769] [INFO] [main.py:74] - 系统启动完成
+[2025-12-25 13:21:31,922] [INFO] [main_controller.py:87] - 切换到交通荷载
+[2025-12-25 13:21:41,876] [INFO] [yolo_detection.py:59] - 加载YOLO模型: yolo11n.pt
+[2025-12-25 13:21:41,876] [INFO] [yolo_detection.py:62] - YOLO检测模型初始化完成
+[2025-12-25 13:23:23,429] [INFO] [yolo_detection.py:225] - YOLO检测模型资源已释放
+[2025-12-25 13:23:37,686] [INFO] [main_controller.py:92] - 切换到评估报告
+[2025-12-25 13:24:20,020] [INFO] [main_controller.py:92] - 切换到评估报告
+[2025-12-25 13:24:21,800] [INFO] [main_controller.py:87] - 切换到交通荷载
+[2025-12-25 13:24:23,657] [INFO] [main_controller.py:78] - 切换到裂缝检测
+[2025-12-25 13:35:50,382] [INFO] [yolo_detection.py:59] - 加载YOLO模型: E:/crackTest/test1/best_seg.pt
+[2025-12-25 13:35:50,383] [INFO] [yolo_detection.py:62] - YOLO检测模型初始化完成
+[2025-12-25 13:35:50,383] [INFO] [yolo_detection.py:323] - 裂缝分析模型初始化完成
+[2025-12-25 13:35:54,138] [INFO] [main_controller.py:44] - 主控制器使用预加载的模型
+[2025-12-25 13:35:54,139] [INFO] [main_controller.py:57] - 主控制器初始化完成
+[2025-12-25 13:35:54,169] [INFO] [main.py:74] - 系统启动完成
+[2025-12-25 13:35:58,212] [INFO] [main_controller.py:78] - 切换到裂缝检测
+[2025-12-25 13:35:59,477] [INFO] [main_controller.py:87] - 切换到交通荷载
+[2025-12-25 13:36:00,801] [INFO] [main_controller.py:92] - 切换到评估报告
+[2025-12-25 13:39:09,178] [INFO] [yolo_detection.py:59] - 加载YOLO模型: E:/crackTest/test1/best_seg.pt
+[2025-12-25 13:39:09,179] [INFO] [yolo_detection.py:62] - YOLO检测模型初始化完成
+[2025-12-25 13:39:09,179] [INFO] [yolo_detection.py:323] - 裂缝分析模型初始化完成
+[2025-12-25 13:39:11,187] [INFO] [main_controller.py:44] - 主控制器使用预加载的模型
+[2025-12-25 13:39:11,187] [INFO] [main_controller.py:57] - 主控制器初始化完成
+[2025-12-25 13:39:11,221] [INFO] [main.py:74] - 系统启动完成
+[2025-12-25 13:39:12,255] [INFO] [main_controller.py:92] - 切换到评估报告
+[2025-12-25 13:41:29,702] [INFO] [yolo_detection.py:59] - 加载YOLO模型: E:/crackTest/test1/best_seg.pt
+[2025-12-25 13:41:29,703] [INFO] [yolo_detection.py:62] - YOLO检测模型初始化完成
+[2025-12-25 13:41:29,703] [INFO] [yolo_detection.py:323] - 裂缝分析模型初始化完成
+[2025-12-25 13:41:33,917] [INFO] [main_controller.py:44] - 主控制器使用预加载的模型
+[2025-12-25 13:41:33,917] [INFO] [main_controller.py:57] - 主控制器初始化完成
+[2025-12-25 13:41:33,949] [INFO] [main.py:74] - 系统启动完成
+[2025-12-25 13:41:35,486] [INFO] [main_controller.py:92] - 切换到评估报告
+[2025-12-25 13:43:17,250] [INFO] [yolo_detection.py:59] - 加载YOLO模型: E:/crackTest/test1/best_seg.pt
+[2025-12-25 13:43:17,250] [INFO] [yolo_detection.py:62] - YOLO检测模型初始化完成
+[2025-12-25 13:43:17,250] [INFO] [yolo_detection.py:323] - 裂缝分析模型初始化完成
+[2025-12-25 13:43:19,066] [INFO] [main_controller.py:44] - 主控制器使用预加载的模型
+[2025-12-25 13:43:19,066] [INFO] [main_controller.py:57] - 主控制器初始化完成
+[2025-12-25 13:43:19,098] [INFO] [main.py:74] - 系统启动完成
+[2025-12-25 13:43:20,133] [INFO] [main_controller.py:92] - 切换到评估报告
+[2025-12-25 13:43:20,657] [INFO] [main_controller.py:87] - 切换到交通荷载
+[2025-12-25 13:46:26,872] [INFO] [yolo_detection.py:59] - 加载YOLO模型: E:/crackTest/test1/best_seg.pt
+[2025-12-25 13:46:26,872] [INFO] [yolo_detection.py:62] - YOLO检测模型初始化完成
+[2025-12-25 13:46:26,872] [INFO] [yolo_detection.py:323] - 裂缝分析模型初始化完成
+[2025-12-25 13:46:33,990] [INFO] [main_controller.py:44] - 主控制器使用预加载的模型
+[2025-12-25 13:46:33,990] [INFO] [main_controller.py:57] - 主控制器初始化完成
+[2025-12-25 13:46:34,023] [INFO] [main.py:74] - 系统启动完成
+[2025-12-25 13:50:21,170] [INFO] [yolo_detection.py:59] - 加载YOLO模型: E:/crackTest/test1/best_seg.pt
+[2025-12-25 13:50:21,171] [INFO] [yolo_detection.py:62] - YOLO检测模型初始化完成
+[2025-12-25 13:50:21,171] [INFO] [yolo_detection.py:323] - 裂缝分析模型初始化完成
+[2025-12-25 13:50:23,024] [INFO] [main_controller.py:44] - 主控制器使用预加载的模型
+[2025-12-25 13:50:23,024] [INFO] [main_controller.py:57] - 主控制器初始化完成
+[2025-12-25 13:50:23,056] [INFO] [main.py:74] - 系统启动完成
+[2025-12-25 13:59:30,189] [INFO] [main_controller.py:92] - 切换到评估报告
+[2025-12-25 13:59:31,419] [INFO] [main_controller.py:87] - 切换到交通荷载
+[2025-12-25 13:59:32,282] [INFO] [main_controller.py:78] - 切换到裂缝检测
+[2025-12-25 13:59:32,785] [INFO] [main_controller.py:87] - 切换到交通荷载
+[2025-12-25 13:59:35,737] [INFO] [main_controller.py:78] - 切换到裂缝检测
+[2025-12-25 13:59:36,387] [INFO] [main_controller.py:73] - 切换到首页总览
+[2025-12-25 13:59:37,546] [INFO] [main_controller.py:78] - 切换到裂缝检测
+[2025-12-25 13:59:38,362] [INFO] [main_controller.py:87] - 切换到交通荷载
+[2025-12-25 13:59:38,660] [INFO] [main_controller.py:92] - 切换到评估报告

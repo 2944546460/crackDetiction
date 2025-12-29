@@ -10,11 +10,14 @@ from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QGroupBox, QTableWidget,
     QTableWidgetItem, QLabel, QFrame, QSplitter, QPushButton, QDialog,
     QScrollArea, QGridLayout, QSizePolicy, QHeaderView, QProgressDialog,
-    QMessageBox
+    QMessageBox, QLineEdit, QFormLayout, QDoubleSpinBox, QSpinBox,
+    QDateEdit, QComboBox
 )
 from PyQt5.QtGui import QPixmap, QFont
 from PyQt5.QtCore import Qt, QDate
 import matplotlib.pyplot as plt
+import matplotlib.dates as mdates
+from datetime import datetime
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 from matplotlib import rcParams
@@ -28,6 +31,116 @@ parent_dir = os.path.dirname(current_dir)
 if parent_dir not in sys.path:
     sys.path.append(parent_dir)
 
+class EditRecordDialog(QDialog):
+    """编辑记录对话框"""
+    def __init__(self, record_type, details=None, score=0.0, parent=None):
+        super().__init__(parent)
+        self.record_type = record_type
+        self.initial_score = score
+        self.setWindowTitle(f"编辑{record_type}详情")
+        self.setFixedWidth(350)
+        self._init_ui(details)
+        
+    def _init_ui(self, details):
+        layout = QVBoxLayout(self)
+        form_layout = QFormLayout()
+        
+        # 健康分字段 (所有类型通用)
+        self.score_spin = QDoubleSpinBox()
+        self.score_spin.setRange(0.0, 100.0)
+        self.score_spin.setDecimals(1)
+        self.score_spin.setValue(self.initial_score)
+        form_layout.addRow("健康评分:", self.score_spin)
+        
+        # 分隔线
+        line = QFrame()
+        line.setFrameShape(QFrame.HLine)
+        line.setFrameShadow(QFrame.Sunken)
+        form_layout.addRow(line)
+        
+        if self.record_type == "裂缝检测":
+            current_width = details[1] if details and len(details) > 1 else 0.0
+            current_count = details[2] if details and len(details) > 2 else 0
+            
+            self.width_spin = QDoubleSpinBox()
+            self.width_spin.setRange(0.0, 100.0)
+            self.width_spin.setDecimals(2)
+            self.width_spin.setSuffix(" mm")
+            self.width_spin.setValue(current_width)
+            
+            self.count_spin = QSpinBox()
+            self.count_spin.setRange(0, 1000)
+            self.count_spin.setValue(current_count)
+            
+            form_layout.addRow("最大裂缝宽度:", self.width_spin)
+            form_layout.addRow("裂缝数量:", self.count_spin)
+            
+        elif self.record_type == "交通监测":
+            # [total, truck, car, bus]
+            current_total = details[0] if details and len(details) > 0 else 0
+            current_truck = details[1] if details and len(details) > 1 else 0
+            current_car = details[2] if details and len(details) > 2 else 0
+            current_bus = details[3] if details and len(details) > 3 else 0
+            
+            self.total_spin = QSpinBox()
+            self.total_spin.setRange(0, 10000)
+            self.total_spin.setValue(current_total)
+            
+            self.truck_spin = QSpinBox()
+            self.truck_spin.setRange(0, 10000)
+            self.truck_spin.setValue(current_truck)
+            
+            self.car_spin = QSpinBox()
+            self.car_spin.setRange(0, 10000)
+            self.car_spin.setValue(current_car)
+            
+            self.bus_spin = QSpinBox()
+            self.bus_spin.setRange(0, 10000)
+            self.bus_spin.setValue(current_bus)
+            
+            form_layout.addRow("总车辆数:", self.total_spin)
+            form_layout.addRow("重车数量:", self.truck_spin)
+            form_layout.addRow("小车数量:", self.car_spin)
+            form_layout.addRow("公交车数量:", self.bus_spin)
+            
+            # 自动计算总数逻辑
+            self.truck_spin.valueChanged.connect(self._update_total)
+            self.car_spin.valueChanged.connect(self._update_total)
+            self.bus_spin.valueChanged.connect(self._update_total)
+            
+        else:
+            label = QLabel("当前记录类型不支持手动编辑详情")
+            form_layout.addRow(label)
+            
+        layout.addLayout(form_layout)
+        
+        # 按钮
+        btn_layout = QHBoxLayout()
+        self.save_btn = QPushButton("保存修改")
+        self.save_btn.setStyleSheet("background-color: #27ae60; color: white; padding: 5px; font-weight: bold;")
+        self.cancel_btn = QPushButton("取消")
+        
+        self.save_btn.clicked.connect(self.accept)
+        self.cancel_btn.clicked.connect(self.reject)
+        
+        btn_layout.addWidget(self.save_btn)
+        btn_layout.addWidget(self.cancel_btn)
+        layout.addLayout(btn_layout)
+
+    def _update_total(self):
+        """当各车型数量变化时，自动更新总车辆数"""
+        if hasattr(self, 'total_spin'):
+            total = self.truck_spin.value() + self.car_spin.value() + self.bus_spin.value()
+            self.total_spin.setValue(total)
+
+    def get_values(self):
+        score = self.score_spin.value()
+        if self.record_type == "裂缝检测":
+            return score, self.width_spin.value(), self.count_spin.value()
+        elif self.record_type == "交通监测":
+            return score, self.total_spin.value(), self.truck_spin.value(), self.car_spin.value(), self.bus_spin.value()
+        return score, None
+
 class HistoryPage(QWidget):
     """历史记录页面类"""
     
@@ -38,8 +151,11 @@ class HistoryPage(QWidget):
         # 设置中文字体
         rcParams['font.family'] = ['Microsoft YaHei', 'SimHei']
         
-        # 历史记录数据
+        # 历史记录数据和分页状态
         self.history_data = []
+        self.current_page = 1
+        self.page_size = 15
+        self.total_records = 0
         
         self._init_ui()
         self._load_data()
@@ -68,15 +184,116 @@ class HistoryPage(QWidget):
         table_layout = QVBoxLayout(table_card)
         table_layout.setSpacing(15)
 
-        # 1. 工具栏
-        toolbar_layout = QHBoxLayout()
+        # 1. 筛选与工具栏
+        filter_card = QFrame()
+        filter_card.setStyleSheet("background: transparent; border: none;")
+        filter_layout = QHBoxLayout(filter_card)
+        filter_layout.setContentsMargins(0, 0, 0, 5)
         
-        # 标题
-        table_title = QLabel("检测记录列表")
-        table_title.setStyleSheet("font-size: 16px; font-weight: bold; color: #333333; font-family: 'Microsoft YaHei'; border: none; background: transparent;")
-        toolbar_layout.addWidget(table_title)
+        # 统一控件样式
+        control_style = """
+            QComboBox, QDateEdit {
+                border: 1px solid #dcdfe6;
+                border-radius: 4px;
+                padding: 5px 10px;
+                min-width: 120px;
+                background: white;
+                color: #606266;
+            }
+            QComboBox:hover, QDateEdit:hover {
+                border-color: #409eff;
+            }
+            QDateEdit::drop-down {
+                subcontrol-origin: padding;
+                subcontrol-position: top right;
+                width: 20px;
+                border-left: none;
+            }
+            /* 日历弹窗样式优化 */
+            QCalendarWidget QWidget { 
+                background-color: white;
+            }
+            QCalendarWidget QTableView {
+                border: 1px solid #e4e7ed;
+                selection-background-color: #409eff;
+            }
+            QCalendarWidget QAbstractItemView:enabled {
+                color: #606266;
+                selection-background-color: #409eff;
+                selection-color: white;
+            }
+            QCalendarWidget QAbstractItemView:disabled {
+                color: #c0c4cc;
+            }
+            QCalendarWidget QToolButton {
+                color: #303133;
+                background-color: transparent;
+                border: none;
+                margin: 5px;
+                font-weight: bold;
+            }
+            QCalendarWidget QToolButton:hover {
+                background-color: #f5f7fa;
+                color: #409eff;
+            }
+            QCalendarWidget QToolButton#qt_calendar_prevbutton {
+                qproperty-icon: none;
+                qproperty-text: "<";
+            }
+            QCalendarWidget QToolButton#qt_calendar_nextbutton {
+                qproperty-icon: none;
+                qproperty-text: ">";
+            }
+            QCalendarWidget QSpinBox {
+                width: 60px;
+                font-size: 14px;
+                color: #303133;
+                background-color: white;
+                selection-background-color: #409eff;
+                border: 1px solid #dcdfe6;
+                border-radius: 4px;
+            }
+            QCalendarWidget QMenu {
+                background-color: white;
+                border: 1px solid #e4e7ed;
+                color: #606266;
+            }
+            QCalendarWidget QMenu::item:selected {
+                background-color: #f5f7fa;
+                color: #409eff;
+            }
+        """
+
+        # 记录类型筛选
+        filter_layout.addWidget(QLabel("类型:"))
+        self.type_combo = QComboBox()
+        self.type_combo.addItems(["全部", "裂缝检测", "交通监测"])
+        self.type_combo.setStyleSheet(control_style)
+        self.type_combo.currentTextChanged.connect(self._on_filter_changed)
+        filter_layout.addWidget(self.type_combo)
         
-        toolbar_layout.addStretch() # 弹簧
+        filter_layout.addSpacing(15)
+        
+        # 时间筛选
+        filter_layout.addWidget(QLabel("从:"))
+        self.start_date_edit = QDateEdit()
+        self.start_date_edit.setCalendarPopup(True)
+        self.start_date_edit.setDisplayFormat("yyyy-MM-dd") # 确保日期显示完整
+        self.start_date_edit.setStyleSheet(control_style)
+        self.start_date_edit.setDate(QDate.currentDate().addMonths(-1)) # 默认一个月前
+        self.start_date_edit.dateChanged.connect(self._on_filter_changed)
+        filter_layout.addWidget(self.start_date_edit)
+        
+        filter_layout.addWidget(QLabel("至:"))
+        self.end_date_edit = QDateEdit()
+        self.end_date_edit.setCalendarPopup(True)
+        self.end_date_edit.setDisplayFormat("yyyy-MM-dd") # 确保日期显示完整
+        self.end_date_edit.setStyleSheet(control_style)
+        self.end_date_edit.setDate(QDate.currentDate())
+        self.end_date_edit.dateChanged.connect(self._on_filter_changed)
+        filter_layout.addWidget(self.end_date_edit)
+        
+        filter_layout.addStretch() # 弹簧
         
         # 刷新按钮
         refresh_btn = QPushButton("刷新数据")
@@ -93,7 +310,7 @@ class HistoryPage(QWidget):
             QPushButton:hover { background-color: #2980b9; }
         """)
         refresh_btn.clicked.connect(self._load_data)
-        toolbar_layout.addWidget(refresh_btn)
+        filter_layout.addWidget(refresh_btn)
 
         # 导出按钮
         export_btn = QPushButton("导出 Excel")
@@ -110,9 +327,9 @@ class HistoryPage(QWidget):
             QPushButton:hover { background-color: #219150; }
         """)
         export_btn.clicked.connect(self._export_data) # 绑定导出功能
-        toolbar_layout.addWidget(export_btn)
+        filter_layout.addWidget(export_btn)
         
-        table_layout.addLayout(toolbar_layout)
+        table_layout.addWidget(filter_card)
         
         # 2. 表格
         self.table_widget = QTableWidget()
@@ -154,12 +371,45 @@ class HistoryPage(QWidget):
         header = self.table_widget.horizontalHeader()
         header.setSectionResizeMode(QHeaderView.Stretch) # 自动铺满
         header.setSectionResizeMode(4, QHeaderView.Fixed) # 最后一列固定宽度
-        self.table_widget.setColumnWidth(4, 200) # 给操作按钮留足空间，防止遮挡
+        self.table_widget.setColumnWidth(4, 220) # 给操作按钮留足空间，防止遮挡
         
         # 连接表格点击事件
         self.table_widget.cellClicked.connect(self._on_table_row_clicked)
         
         table_layout.addWidget(self.table_widget)
+        
+        # 3. 分页栏
+        pagination_layout = QHBoxLayout()
+        pagination_layout.setContentsMargins(0, 5, 0, 0)
+        
+        self.page_info_label = QLabel("第 1 页 / 共 1 页 (总计 0 条)")
+        self.page_info_label.setStyleSheet("color: #666666; font-size: 13px;")
+        pagination_layout.addWidget(self.page_info_label)
+        
+        pagination_layout.addStretch()
+        
+        self.prev_btn = QPushButton("上一页")
+        self.prev_btn.setFixedWidth(80)
+        self.prev_btn.setCursor(Qt.PointingHandCursor)
+        self.prev_btn.clicked.connect(self._on_prev_page)
+        
+        self.next_btn = QPushButton("下一页")
+        self.next_btn.setFixedWidth(80)
+        self.next_btn.setCursor(Qt.PointingHandCursor)
+        self.next_btn.clicked.connect(self._on_next_page)
+        
+        self.page_size_combo = QComboBox()
+        self.page_size_combo.addItems(["10 条/页", "15 条/页", "20 条/页", "50 条/页"])
+        self.page_size_combo.setCurrentText(f"{self.page_size} 条/页")
+        self.page_size_combo.currentTextChanged.connect(self._on_page_size_changed)
+        
+        pagination_layout.addWidget(self.prev_btn)
+        pagination_layout.addSpacing(10)
+        pagination_layout.addWidget(self.next_btn)
+        pagination_layout.addSpacing(15)
+        pagination_layout.addWidget(self.page_size_combo)
+        
+        table_layout.addLayout(pagination_layout)
         
         # 添加表格卡片到主布局 (stretch=2)
         main_layout.addWidget(table_card, 2)
@@ -222,6 +472,7 @@ class HistoryPage(QWidget):
         
         # 创建画布
         self.health_canvas = FigureCanvas(self.health_figure)
+        self.health_canvas.setMinimumSize(200, 150)
         self.health_canvas.setStyleSheet("background-color: transparent;")
         self.health_canvas.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         
@@ -264,6 +515,7 @@ class HistoryPage(QWidget):
         
         # 创建画布
         self.truck_canvas = FigureCanvas(self.truck_figure)
+        self.truck_canvas.setMinimumSize(200, 150)
         self.truck_canvas.setStyleSheet("background-color: transparent;")
         self.truck_canvas.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         
@@ -293,13 +545,40 @@ class HistoryPage(QWidget):
         self.truck_ax.grid(True, linestyle='--', alpha=0.3, color='#bdc3c7', axis='y')
     
     def _load_data(self):
-        """加载历史记录数据"""
+        """加载历史记录数据 (支持分页和筛选)"""
         try:
             from utils.db_manager import DBManager
             db = DBManager()
             
-            # 获取历史记录数据
-            self.history_data = db.get_history(limit=100)  # 获取最近100条记录
+            # 获取筛选参数
+            record_type = self.type_combo.currentText()
+            start_date = self.start_date_edit.date().toString("yyyy-MM-dd")
+            end_date = self.end_date_edit.date().toString("yyyy-MM-dd")
+            
+            # 计算偏移量
+            offset = (self.current_page - 1) * self.page_size
+            
+            # 获取数据和总数
+            self.history_data = db.get_history(
+                limit=self.page_size, 
+                offset=offset, 
+                record_type=record_type, 
+                start_date=start_date, 
+                end_date=end_date
+            )
+            self.total_records = db.get_history_count(
+                record_type=record_type, 
+                start_date=start_date, 
+                end_date=end_date
+            )
+            
+            # 更新分页信息
+            total_pages = max(1, (self.total_records + self.page_size - 1) // self.page_size)
+            self.page_info_label.setText(f"第 {self.current_page} 页 / 共 {total_pages} 页 (总计 {self.total_records} 条)")
+            
+            # 更新按钮状态
+            self.prev_btn.setEnabled(self.current_page > 1)
+            self.next_btn.setEnabled(self.current_page < total_pages)
             
             # 更新表格
             self._update_table()
@@ -309,6 +588,35 @@ class HistoryPage(QWidget):
             
         except Exception as e:
             logger.error(f"加载历史数据失败: {str(e)}")
+
+    def _on_filter_changed(self):
+        """筛选条件改变时，重置页码并重新加载"""
+        self.current_page = 1
+        self._load_data()
+
+    def _on_prev_page(self):
+        """上一页"""
+        if self.current_page > 1:
+            self.current_page -= 1
+            self._load_data()
+
+    def _on_next_page(self):
+        """下一页"""
+        total_pages = (self.total_records + self.page_size - 1) // self.page_size
+        if self.current_page < total_pages:
+            self.current_page += 1
+            self._load_data()
+
+    def _on_page_size_changed(self, text):
+        """每页条数改变时，重置页码并重新加载"""
+        try:
+            new_size = int(text.split(' ')[0])
+            if new_size != self.page_size:
+                self.page_size = new_size
+                self.current_page = 1
+                self._load_data()
+        except ValueError:
+            pass
     
     def _update_table(self):
         """更新表格显示"""
@@ -350,10 +658,10 @@ class HistoryPage(QWidget):
             self.table_widget.setItem(i, 3, score_item)
             
             # 添加操作按钮
-            view_btn = QPushButton("查看详情")
+            view_btn = QPushButton("详情")
             view_btn.setCursor(Qt.PointingHandCursor)
-            view_btn.setFixedWidth(85)  # 稍微加宽一点，确保文字不拥挤
-            view_btn.setFixedHeight(30)  # 稍微加高一点，垂直居中更明显
+            view_btn.setFixedWidth(60)
+            view_btn.setFixedHeight(30)
             view_btn.setStyleSheet("""
                 QPushButton {
                     color: #ffffff;
@@ -368,10 +676,32 @@ class HistoryPage(QWidget):
             """)
             view_btn.clicked.connect(lambda checked, idx=i: self._on_view_details(idx))
             
+            edit_btn = QPushButton("编辑")
+            edit_btn.setCursor(Qt.PointingHandCursor)
+            edit_btn.setFixedWidth(60)
+            edit_btn.setFixedHeight(30)
+            edit_btn.setStyleSheet("""
+                QPushButton {
+                    color: #ffffff;
+                    background-color: #27ae60;
+                    border: none;
+                    border-radius: 4px;
+                    padding: 0;
+                    font-size: 13px;
+                    font-weight: bold;
+                }
+                QPushButton:hover { background-color: #219150; }
+            """)
+            # 只有裂缝检测和交通监测支持编辑
+            if record_type not in ["裂缝检测", "交通监测"]:
+                edit_btn.setEnabled(False)
+                edit_btn.setStyleSheet("background-color: #bdc3c7; color: #ffffff; border-radius: 4px;")
+            edit_btn.clicked.connect(lambda checked, rec=record: self._on_edit_record(rec))
+
             delete_btn = QPushButton("删除")
             delete_btn.setCursor(Qt.PointingHandCursor)
-            delete_btn.setFixedWidth(85)  # 统一固定宽度
-            delete_btn.setFixedHeight(30)  # 统一固定高度
+            delete_btn.setFixedWidth(60)
+            delete_btn.setFixedHeight(30)
             delete_btn.setStyleSheet("""
                 QPushButton {
                     color: #ffffff;
@@ -389,10 +719,11 @@ class HistoryPage(QWidget):
             # 创建一个Widget来排列按钮
             btn_widget = QWidget()
             btn_layout = QHBoxLayout(btn_widget)
-            btn_layout.setContentsMargins(5, 0, 15, 0) # 左侧留5px，右侧留15px防止遮挡
+            btn_layout.setContentsMargins(5, 0, 5, 0) 
             btn_layout.setSpacing(10) # 按钮间距
             btn_layout.setAlignment(Qt.AlignCenter) # 确保水平和垂直都居中
             btn_layout.addWidget(view_btn)
+            btn_layout.addWidget(edit_btn)
             btn_layout.addWidget(delete_btn)
             self.table_widget.setCellWidget(i, 4, btn_widget)
             
@@ -470,6 +801,41 @@ class HistoryPage(QWidget):
         else:
             QMessageBox.critical(self, "导出失败", f"导出 Excel 失败: {result.get('error')}")
 
+    def _on_edit_record(self, record):
+        """编辑记录处理"""
+        record_id = record["id"]
+        record_type = record["type"]
+        score = record["score"]
+        details = record.get("details")
+        
+        if record_type not in ["裂缝检测", "交通监测"] or not details:
+            QMessageBox.information(self, "提示", "该记录类型暂不支持编辑")
+            return
+            
+        dialog = EditRecordDialog(record_type, details, score, self)
+        if dialog.exec_() == QDialog.Accepted:
+            try:
+                from utils.db_manager import DBManager
+                db = DBManager()
+                success = False
+                
+                if record_type == "裂缝检测":
+                    new_score, new_width, new_count = dialog.get_values()
+                    success = db.update_crack_details(record_id, new_width, new_count, new_score)
+                elif record_type == "交通监测":
+                    new_score, new_total, new_truck, new_car, new_bus = dialog.get_values()
+                    success = db.update_traffic_stats(record_id, new_total, new_truck, new_car, new_bus, new_score)
+                
+                if success:
+                    # 重新加载数据并刷新页面
+                    self._load_data()
+                    QMessageBox.information(self, "成功", "记录已成功更新")
+                else:
+                    QMessageBox.error(self, "失败", "更新记录失败，请检查数据库状态")
+            except Exception as e:
+                logger.error(f"编辑记录异常: {e}")
+                QMessageBox.critical(self, "错误", f"更新过程中发生异常: {str(e)}")
+
     def _on_delete_record(self, record_id):
         """删除记录处理"""
         reply = QMessageBox.question(
@@ -501,37 +867,45 @@ class HistoryPage(QWidget):
         # 清空图表
         self.health_ax.clear()
         
-        # 准备数据
-        dates = []
-        scores = []
-        
+        # 准备数据并按时间排序
+        chart_data = []
         for record in self.history_data:
             score = record["score"]
-            timestamp = record["timestamp"]
-            # 提取日期部分
-            date_str = timestamp.split(' ')[0]
-            dates.append(date_str)
-            scores.append(score)
+            timestamp_str = record["timestamp"]
+            try:
+                # 解析完整时间对象
+                dt = datetime.strptime(timestamp_str, "%Y-%m-%d %H:%M:%S")
+                chart_data.append((dt, score))
+            except Exception as e:
+                logger.error(f"解析时间字符串失败: {timestamp_str}, 错误: {e}")
         
-        # 反转列表，使时间顺序正确
-        dates.reverse()
-        scores.reverse()
+        # 按时间升序排序
+        chart_data.sort(key=lambda x: x[0])
         
-        if not dates:
-            self.health_ax.text(0.5, 0.5, "暂无数据", ha='center', va='center', color='#999')
+        if not chart_data:
+            self.health_ax.text(0.5, 0.5, "暂无数据", ha='center', va='center', color='#999', transform=self.health_ax.transAxes)
         else:
+            dates = [x[0] for x in chart_data]
+            scores = [x[1] for x in chart_data]
+            
             # 绘制阈值背景带
+            # 注意：在使用时间轴时，axhspan 的 x 范围会自动覆盖
             self.health_ax.axhspan(90, 100, color='green', alpha=0.1, label='优秀')
             self.health_ax.axhspan(60, 90, color='yellow', alpha=0.1, label='良好')
             self.health_ax.axhspan(0, 60, color='red', alpha=0.1, label='警戒')
             
             # 增加基准线（警戒线）
             self.health_ax.axhline(y=60, color='red', linestyle='--', linewidth=1.5, alpha=0.8)
-            self.health_ax.text(len(dates)-0.5 if len(dates)>0 else 0, 62, "警戒线", color='red', fontsize=9, fontweight='bold')
-
+            
             # 绘制折线图
             self.health_ax.plot(dates, scores, color='#3498db', linewidth=2.5, marker='o', 
-                               markersize=6, markerfacecolor='white', markeredgewidth=2, label='健康分')
+                               markersize=4, markerfacecolor='white', markeredgewidth=1.5, label='健康分')
+            
+            # 设置 X 轴格式化
+            self.health_ax.xaxis.set_major_formatter(mdates.DateFormatter('%m-%d %H:%M'))
+            
+            # 让时间标签自动倾斜
+            self.health_figure.autofmt_xdate()
         
         # 设置坐标轴范围
         self.health_ax.set_ylim(0, 105)
@@ -543,7 +917,7 @@ class HistoryPage(QWidget):
         self.health_ax.spines['bottom'].set_color('#bdc3c7')
         
         # 设置坐标轴标签
-        self.health_ax.set_xlabel('检测日期', fontsize=10, color='#666')
+        self.health_ax.set_xlabel('检测时间', fontsize=10, color='#666')
         self.health_ax.set_ylabel('评分 (0-100)', fontsize=10, color='#666')
         
         # 设置标题
@@ -552,13 +926,11 @@ class HistoryPage(QWidget):
         # 设置网格线
         self.health_ax.grid(True, linestyle=':', alpha=0.4, color='#bdc3c7')
         
-        # 设置X轴标签旋转
-        if dates:
-            self.health_ax.set_xticks(range(len(dates)))
-            self.health_ax.set_xticklabels(dates, rotation=35, ha='right', fontsize=9)
-        
         # 调整布局
-        self.health_figure.tight_layout()
+        try:
+            self.health_figure.tight_layout()
+        except:
+            pass
         
         # 刷新图表
         self.health_canvas.draw()
@@ -637,7 +1009,10 @@ class HistoryPage(QWidget):
             self.truck_ax.set_xticklabels(dates, rotation=35, ha='right', fontsize=9)
         
         # 调整布局
-        self.truck_figure.tight_layout()
+        try:
+            self.truck_figure.tight_layout()
+        except:
+            pass
         
         # 刷新图表
         self.truck_canvas.draw()
@@ -663,7 +1038,7 @@ class HistoryPage(QWidget):
             # 创建详情对话框
             dialog = QDialog(self)
             dialog.setWindowTitle("检测详情")
-            dialog.setFixedSize(600, 500)
+            dialog.setFixedSize(600, 650)
             dialog.setStyleSheet("background-color: #ffffff;")
             
             # 创建对话框布局
@@ -768,6 +1143,78 @@ class HistoryPage(QWidget):
                 traffic_layout.addWidget(QLabel(str(details[3])), 3, 1)
                 
                 content_layout.addWidget(traffic_group)
+            
+            # 添加评分依据 (响应用户对健康分依据的疑问)
+            basis_group = QGroupBox("评分依据 (Health Score Basis)")
+            basis_group.setStyleSheet("""
+                QGroupBox {
+                    font-weight: bold;
+                    border: 1px solid #3498db;
+                    border-radius: 6px;
+                    margin-top: 15px;
+                    padding-top: 10px;
+                    background-color: #f8fbff;
+                }
+                QGroupBox::title {
+                    subcontrol-origin: margin;
+                    left: 10px;
+                    padding: 0 5px;
+                    color: #2980b9;
+                }
+            """)
+            basis_layout = QVBoxLayout(basis_group)
+            
+            basis_text = QLabel()
+            basis_text.setWordWrap(True)
+            basis_text.setStyleSheet("color: #444; line-height: 1.6; font-size: 13px; padding: 10px;")
+            
+            if record_type == "裂缝检测":
+                max_width = details[1] if details else 0
+                crack_count = details[2] if details else 0
+                
+                # 重新计算各项扣分以展示
+                if max_width < 0.1: w_deduction = 0
+                elif max_width <= 0.2: w_deduction = 5 + (max_width - 0.1) * 50
+                elif max_width <= 0.5: w_deduction = 10 + (max_width - 0.2) * 66.7
+                else: w_deduction = 30 + min(40, (max_width - 0.5) * 80)
+                
+                c_deduction = min(30, crack_count * 2)
+                
+                basis_text.setText(
+                    f"<div style='margin-bottom: 8px;'><b>评分公式：</b> <span style='color: #2980b9;'>100 - 宽度扣分 - 数量扣分</span></div>"
+                    f"<table width='100%' style='border-collapse: collapse;'>"
+                    f"<tr><td style='padding: 4px;'>1. <b>宽度扣分:</b></td><td style='color: #e74c3c; font-weight: bold;'>-{w_deduction:.1f} 分</td></tr>"
+                    f"<tr><td colspan='2' style='color: #7f8c8d; font-size: 12px; padding-left: 15px;'>依据：最大宽度 {max_width:.2f}mm (标准: &lt;0.1mm不扣分, 0.2mm扣10分, 0.5mm扣30分)</td></tr>"
+                    f"<tr><td style='padding: 4px; padding-top: 10px;'>2. <b>数量扣分:</b></td><td style='color: #e74c3c; font-weight: bold; padding-top: 10px;'>-{c_deduction:.1f} 分</td></tr>"
+                    f"<tr><td colspan='2' style='color: #7f8c8d; font-size: 12px; padding-left: 15px;'>依据：发现 {crack_count} 条裂缝 (标准: 每条扣2分，上限30分)</td></tr>"
+                    f"</table>"
+                    f"<br><div style='border-top: 1px solid #ddd; padding-top: 8px; color: #2c3e50;'><b>最终得分：{score:.1f}</b></div>"
+                )
+            elif record_type == "交通监测":
+                total = details[0] if details else 0
+                truck = details[1] if details else 0
+                
+                # 重新计算各项扣分以展示
+                truck_ratio = truck / total if total > 0 else 0
+                if truck_ratio < 0.1: t_deduction = truck_ratio * 50
+                elif truck_ratio <= 0.3: t_deduction = 5 + (truck_ratio - 0.1) * 100
+                else: t_deduction = 25 + min(35, (truck_ratio - 0.3) * 116.7)
+                
+                f_deduction = min(30, total / 10.0)
+                
+                basis_text.setText(
+                    f"<div style='margin-bottom: 8px;'><b>评分公式：</b> <span style='color: #2980b9;'>100 - 重车比扣分 - 流量扣分</span></div>"
+                    f"<table width='100%' style='border-collapse: collapse;'>"
+                    f"<tr><td style='padding: 4px;'>1. <b>重车比扣分:</b></td><td style='color: #e74c3c; font-weight: bold;'>-{t_deduction:.1f} 分</td></tr>"
+                    f"<tr><td colspan='2' style='color: #7f8c8d; font-size: 12px; padding-left: 15px;'>依据：重车比例 {truck_ratio*100:.1f}% (标准: &lt;10%扣0-5, 30%扣25, &gt;30%严重负载)</td></tr>"
+                    f"<tr><td style='padding: 4px; padding-top: 10px;'>2. <b>流量负荷扣分:</b></td><td style='color: #e74c3c; font-weight: bold; padding-top: 10px;'>-{f_deduction:.1f} 分</td></tr>"
+                    f"<tr><td colspan='2' style='color: #7f8c8d; font-size: 12px; padding-left: 15px;'>依据：累计流量 {total} 辆 (标准: 每10辆扣1分，上限30分)</td></tr>"
+                    f"</table>"
+                    f"<br><div style='border-top: 1px solid #ddd; padding-top: 8px; color: #2c3e50;'><b>最终得分：{score:.1f}</b></div>"
+                )
+            
+            basis_layout.addWidget(basis_text)
+            content_layout.addWidget(basis_group)
             
             # 设置滚动区域内容
             scroll_area.setWidget(content_widget)

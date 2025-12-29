@@ -194,10 +194,12 @@ class ReportPage(QWidget):
         self.figure.patch.set_alpha(0)
         
         self.canvas = FigureCanvas(self.figure)
+        self.canvas.setMinimumSize(200, 200)
         self.canvas.setStyleSheet("background-color: transparent;")
         self.dashboard_layout.addWidget(self.canvas)
         
-        self.ax = self.figure.add_subplot(111, aspect='equal')
+        self.ax = self.figure.add_subplot(111)
+        self.ax.set_aspect('equal') # 有了 MinimumSize 保护，这里设置 aspect 是安全的
         self.ax.set_facecolor('none')
         
         # 绘制底部灰色半圆
@@ -228,7 +230,10 @@ class ReportPage(QWidget):
         )
         
         self.ax.axis('off')
-        self.figure.tight_layout()
+        try:
+            self.figure.tight_layout()
+        except:
+            pass
 
     def _update_gauge(self, score):
         """更新仪表盘动画"""
